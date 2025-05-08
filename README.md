@@ -7,13 +7,12 @@ Como criar um .bat:
 Abra o Bloco de Notas (ou qualquer editor de texto).
 Digite os comandos desejados. Exemplo:
 
-"
-@echo off
-echo Iniciando o servidor...
-npm install
-node server.js
-pause
-"
+    @echo off
+    echo Iniciando o servidor...
+    npm install
+    node server.js
+    pause
+
 
 Esse script:
 Oculta o eco dos comandos com @echo off.
