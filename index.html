@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Produção</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>CONTROLE DE PRODUÇÃO</h1>
+            <div id="currentDateTime" class="current-date-time">--:--:--</div>
+            <div class="action-buttons-container">
+                <button class="refresh-button"><i class="fas fa-sync-alt"></i> Atualizar</button>
+                <div class="report-trigger">
+                    <button id="openReportPanel"><i class="fas fa-file-alt"></i> Relatório</button>
+                </div>
+            </div>
+            <div id="dateFilterContainer">
+                <div class="date-filter">
+                    <label for="datePicker">Selecionar Data:</label>
+                    <input type="date" id="datePicker" name="datePicker">
+                    <button id="applyDateFilter">Filtrar</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="indicators-grid">
+            <div class="indicator-card">
+                <div class="indicator-icon"><i class="fas fa-boxes"></i></div>
+                <div class="indicator-title">Peças Estimadas</div>
+                <div class="indicator-value-split">
+                    <div class="value-box">-- cx</div>
+                    <div class="value-box units">--</div>
+                </div>
+                <div class="indicator-subtitle">Meta de produção</div>
+            </div>
+
+            <div class="indicator-card">
+                <div class="indicator-icon"><i class="fas fa-tools"></i></div>
+                <div class="indicator-title">Peças Produzidas</div>
+                <div class="indicator-value-split">
+                    <div class="value-box">-- cx</div>
+                    <div class="value-box units">--</div>
+                </div>
+                <div class="indicator-subtitle">Total produzido</div>
+            </div>
+
+            <div class="indicator-card">
+                <div class="indicator-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="indicator-title">Total Aprovados</div>
+                <div class="indicator-value">--</div>
+                <div class="indicator-subtitle">Total de peças boas</div>
+            </div>
+
+            <div class="indicator-card">
+                <div class="indicator-icon"><i class="fas fa-percentage"></i></div>
+                <div class="indicator-title">% Aprovados</div>
+                <div class="indicator-value">--%</div>
+                <div class="indicator-subtitle"></div>
+            </div>
+
+            <div class="indicator-card">
+                <div class="indicator-icon"><i class="fas fa-times-circle"></i></div>
+                <div class="indicator-title">Total Reprovados</div>
+                <div class="indicator-value">--</div>
+                <div class="indicator-subtitle">Total de peças ruins</div>
+            </div>
+
+            <div class="indicator-card">
+                <div class="indicator-icon"><i class="fas fa-percentage"></i></div>
+                <div class="indicator-title">% Reprovados</div>
+                <div class="indicator-value">--%</div>
+                <div class="indicator-subtitle"></div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="oee-section">
+            <div class="oee-chart-container">
+                <div class="section-title">Acompanhamento de Produção Hora a Hora</div>
+                <div class="chart-container">
+                    <canvas id="oeeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+    </div>
+
+    <!-- Modal Report Panel -->
+<div id="reportModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Relatório de Produção</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="report-filter">
+                <div class="date-inputs">
+                    <div class="date-input-group">
+                        <label for="startDate">De:</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="date-input-group">
+                        <label for="endDate">Até:</label>
+                        <input type="date" id="endDate">
+                    </div>
+                </div>
+                <div class="report-actions">
+                    <button id="generateReport"><i class="fas fa-search"></i> Gerar</button>
+                    <button id="downloadReport" class="download-btn"><i class="fas fa-download"></i> Baixar TXT</button>
+                </div>
+            </div>
+            <div id="reportResult" class="report-result"></div>
+        </div>
+    </div>
+</div>
+
+    <script src="script.js"></script>
+</body>
+</html>
