@@ -1,0 +1,10 @@
+@echo off
+cd /d "C:\Users\Teste Teste\Desktop\garrafas"
+
+echo Iniciando o servidor backend...
+start cmd /k "npm start"
+
+timeout /t 5 /nobreak >nul
+
+echo Abrindo o navegador com o dashboard...
+start http://localhost:3000
