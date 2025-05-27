@@ -71,53 +71,53 @@ function closeModal(modalId) {
  * Formata uma data para exibição amigável
  * @param {string} dateString - String de data no formato ISO ou similar
  * @param {boolean} includeTime - Se deve incluir o horário
- * @returns {string} Data formatada
+ * @returns {string} Data formatada.
  */
 function formatDate(dateString, includeTime = false) {
     if (!dateString) return '';
-    
+
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
-    
+
     const options = {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
     };
-    
+
     if (includeTime) {
         options.hour = '2-digit';
         options.minute = '2-digit';
     }
-    
+
     return date.toLocaleDateString('pt-BR', options);
 }
 
 /**
  * Alterna entre telas
- * @param {string} screenId - ID da tela a ser exibida
+ * @param {string} screenId - ID da tela a ser exibida.
  */
 function switchScreen(screenId) {
     // Remover classe active de todos os botões e telas
     document.querySelectorAll('.screen-selector button').forEach(btn => {
         btn.classList.remove('active');
     });
-    
+
     document.querySelectorAll('.tela').forEach(screen => {
         screen.classList.remove('active');
     });
-    
+
     // Adicionar classe active ao botão e tela selecionados
     document.querySelector(`.screen-selector button[onclick="switchScreen('${screenId}')"]`).classList.add('active');
     document.getElementById(screenId).classList.add('active');
-    
+
     // Se for a tela de projetos, carregar os projetos
     if (screenId === 'tela2') {
         fetchProjects();
     }
 }
 
-//deixar em tela cheia 
+//deixar em tela cheia
 document.getElementById('toggleFullscreenDashboard').addEventListener('click', function() {
     if (!document.fullscreenElement) {
         // Se não está em tela cheia, entra em tela cheia
@@ -134,8 +134,8 @@ document.getElementById('toggleFullscreenDashboard').addEventListener('click', f
             document.exitFullscreen();
         } else if (document.webkitExitFullscreen) {
             document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
+        } else if (document.documentElement.msExitFullscreen) { // Corrected: msExitFullscreen
+            document.exitFullscreen();
         }
     }
 });
@@ -223,13 +223,13 @@ function applyRolePermissions() {
     const registerProductionBtn = document.getElementById('registerProductionBtn');
     const generateReportModalBtn = document.getElementById('generateReportModalBtn'); // This is always visible now
     const tela3Button = document.querySelector('.screen-selector button[onclick="switchScreen(\'tela3\')"]');
-    
+
     // Elements within project cards (edit/delete/sub-etapas actions)
     // These will be handled dynamically when project cards are created in createProjectCard
     // and when sub-etapa actions are rendered in openSubEtapasModal.
 
     // Always visible to everyone (as per "Visualização (Pode ver apenas as 3 telas sem modificar nada) - nesse é aberto para todos !")
-    generateReportModalBtn.style.display = 'inline-block'; 
+    generateReportModalBtn.style.display = 'inline-block';
     document.getElementById('toggleFullscreenDashboard').style.display = 'inline-block';
 
     // Register Production Button
@@ -315,14 +315,14 @@ function setupDateFilter() {
     if (selectedDateInput) {
         // Define a data atual como padrão
         const today = new Date();
-        const formattedDate = today.toISOString().split('T')[0]; // FormatogetFullYear()-MM-DD
-        selectedDateInput.value = formattedDate;
-        
+        const formattedToday = today.toISOString().split('T')[0]; // FormatogetFullYear()-MM-DD
+        selectedDateInput.value = formattedToday;
+
         // Adiciona evento de mudança para atualizar os dados quando a data for alterada
         selectedDateInput.addEventListener('change', function() {
             fetchIndicadores(this.value);
         });
-        
+
         // Carrega os dados iniciais
         fetchIndicadores(selectedDateInput.value);
     }
@@ -344,6 +344,17 @@ function formatDateTimeForDB(dateObj) {
 }
 
 /**
+ * Função para formatar uma data para o formato 'DD/MM/YYYY' que o banco espera.
+ * @param {string} dateString - String de data no formato 'YYYY-MM-DD' (ex: '2025-05-15').
+ * @returns {string} Data formatada para 'DD/MM/YYYY'.
+ */
+function formatDateForDB(dateString) {
+    if (!dateString) return null;
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+}
+
+/**
  * Busca e exibe os indicadores do backend (produção por hora, meta, total de peças).
  * @param {string} selectedDate - Data selecionada para o filtro (YYYY-MM-DD).
  */
@@ -358,7 +369,6 @@ async function fetchIndicadores(selectedDate = null) {
     }
 
     try {
-        // No authentication for this endpoint as it's visible to everyone
         const response = await fetch(url);
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro ao buscar indicadores. Resposta não JSON.' }));
@@ -366,48 +376,41 @@ async function fetchIndicadores(selectedDate = null) {
         }
         const data = await response.json();
 
-        // Obter valores dinâmicos do banco de dados conforme a data selecionada
-        // Peças estimadas: valor da coluna 'meta' na tabela 'meta_dia' para a data filtrada
         const caixasEstimadas = data.metaDiaria.length > 0 ? data.metaDiaria[0].meta : 0;
-        const metaTotal = caixasEstimadas * pecasPorCaixa; // Converter caixas para unidades
-        
-        // Peças produzidas: valor total produzido na data filtrada (da tabela 'data_hora_a_hora', coluna 'qtd_dados')
-        const caixasProduzidas = data.totalPecasProduzidas || 0; // Total em caixas (qtd_dados)
-        const totalProduzido = caixasProduzidas * pecasPorCaixa; // Total em unidades (caixas * 12)
-        
-        // Total reprovados em unidades
+        const metaTotal = caixasEstimadas * pecasPorCaixa;
+
+        const caixasProduzidas = data.totalPecasProduzidas || 0;
+        const totalProduzido = caixasProduzidas * pecasPorCaixa;
+
         const totalReprovados = data.totalReprovados || 0;
-        
-        // Total aprovado: totalPecasProduzidasValue - desvioMeta
+
         const totalAprovados = totalProduzido - totalReprovados;
-        
-        // Calcular percentuais com base nos totais
+
         let percentAprovados = 0;
         let percentReprovados = 0;
-        
+
         if (totalProduzido > 0) {
-        percentAprovados = ((totalAprovados / totalProduzido) * 100).toFixed(2);
-        percentReprovados = ((totalReprovados / totalProduzido) * 100).toFixed(2);
+            percentAprovados = ((totalAprovados / totalProduzido) * 100).toFixed(2);
+            percentReprovados = ((totalReprovados / totalProduzido) * 100).toFixed(2);
         }
-        
+
         // Atualizar valores nos cards
         document.getElementById('totalCaixasEstimadas').textContent = caixasEstimadas;
-        document.getElementById('totalPecasEstimadas').textContent = metaTotal; // Alterado para refletir o ID correto de Peças Estimadas
-        
+        document.getElementById('totalPecasEstimadas').textContent = metaTotal;
+
         document.getElementById('totalCaixasProduzidas').textContent = caixasProduzidas;
         document.getElementById('totalPecasProduzidasValue').textContent = totalProduzido;
 
-        document.getElementById('pecasAprovadasHoje').textContent = totalAprovados; // Alterado para refletir o ID correto de Peças Aprovadas
-        document.getElementById('percentAprovados').textContent = percentAprovados; // Alterado para refletir o ID correto de % Aprovados
+        document.getElementById('pecasAprovadasHoje').textContent = totalAprovados;
+        document.getElementById('percentAprovados').textContent = percentAprovados;
 
-        document.getElementById('totalReprovados').textContent = totalReprovados; // Alterado para refletir o ID correto de Total Reprovados
-        document.getElementById('percentReprovados').textContent = percentReprovados; // Alterado para refletir o ID correto de % Reprovados
+        document.getElementById('totalReprovados').textContent = totalReprovados;
+        document.getElementById('percentReprovados').textContent = percentReprovados;
 
 
         if (document.getElementById('productionChart')) {
-        // Pass metaTotal (in pieces) to the chart update function
-        updateProductionChart(data.producaoPorHora); // <--- CHANGE HERE: Pass metaTotal (This line seems to be a leftover from previous iterations and needs to be verified if it's correct for the chart data, but doesn't affect the report)
-    }
+            updateProductionChart(data.producaoPorHora);
+        }
 
     } catch (error) {
         console.error('Erro ao carregar indicadores:', error);
@@ -428,7 +431,7 @@ function updateProductionChart(producaoPorHora) {
 
     // Valor fixo da meta por hora
     const metaPorHora = 8.5;
-    
+
     // Criar um array com o mesmo tamanho dos labels, preenchido com o valor da meta
     const metaData = Array(labels.length).fill(metaPorHora);
 
@@ -509,84 +512,207 @@ function updateProductionChart(producaoPorHora) {
 /**
  * Abre o modal de registro de produção.
  */
-function openRegisterModal() {
+async function openRegisterModal() {
     const registerModal = document.getElementById('registerModal');
     if (registerModal) {
-        registerModal.style.display = 'flex'; // Changed to flex to use align/justify from modal CSS
-        const dataHoraInput = document.getElementById('dataHoraInput');
-        if (dataHoraInput) {
-            const now = new Date();
-            const offset = now.getTimezoneOffset() * 60000;
-            const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
-            dataHoraInput.value = localISOTime;
-        }
-        document.getElementById('registerProductionForm').reset(); // Reset form
-        if (document.getElementById('qtdDadosInput')) document.getElementById('qtdDadosInput').value = ''; // Clear specific fields if reset doesn't cover it.
+        registerModal.style.display = 'flex';
 
+        const pecasEstimadasInput = document.getElementById('pecasEstimadasInput');
+        const dataHoraMetaInput = document.getElementById('dataHoraMetaInput');
+        const dataHoraProducaoInput = document.getElementById('dataHoraProducaoInput');
+
+        // Reset forms to clear previous values
+        document.getElementById('registerProductionForm').reset();
+
+        // Set current date for meta input
+        const today = new Date();
+        const formattedToday = today.toISOString().split('T')[0];
+        dataHoraMetaInput.value = formattedToday;
+
+        // Set current date and time for production input
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+        dataHoraProducaoInput.value = localISOTime;
+
+        // Populate pecasEstimadasInput with current meta for the initially selected date
+        // Use the date from the main dashboard filter if available, otherwise today
+        const initialSelectedDate = document.getElementById('selectedDate').value || formattedToday;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/indicadores?selectedDate=${initialSelectedDate}`);
+            if (response.ok) {
+                const data = await response.json();
+                const currentMetaBoxes = data.metaDiaria.length > 0 ? data.metaDiaria[0].meta : 0;
+                pecasEstimadasInput.value = currentMetaBoxes;
+            } else {
+                console.error('Failed to fetch current meta for registration modal.');
+                pecasEstimadasInput.value = 0; // Default if fetch fails
+            }
+        } catch (error) {
+            console.error('Error fetching current meta:', error);
+            pecasEstimadasInput.value = 0; // Default if error
+        }
+
+        // Set editability for pecasEstimadasInput and updateMetaBtn based on role
+        const updateMetaBtn = document.getElementById('updateMetaBtn');
+        if (['diretoria', 'coordenador'].includes(currentUserRole)) {
+            pecasEstimadasInput.removeAttribute('readonly');
+            pecasEstimadasInput.classList.remove('disabled-field');
+            dataHoraMetaInput.removeAttribute('readonly');
+            dataHoraMetaInput.classList.remove('disabled-field');
+            updateMetaBtn.style.display = 'inline-block';
+        } else {
+            pecasEstimadasInput.setAttribute('readonly', true);
+            pecasEstimadasInput.classList.add('disabled-field');
+            dataHoraMetaInput.setAttribute('readonly', true);
+            dataHoraMetaInput.classList.add('disabled-field');
+            updateMetaBtn.style.display = 'none'; // Hide the update meta button for unauthorized roles
+        }
     }
 }
 
 /**
- * Função para registrar produção.
- * Envia os dados para o backend.
+ * Função para ATUALIZAR APENAS as peças estimadas (meta diária).
  */
-async function registerProduction(event) {
-    event.preventDefault();
+async function updateDailyMeta() {
+    const pecasEstimadasInput = document.getElementById('pecasEstimadasInput');
+    const dataHoraMetaInput = document.getElementById('dataHoraMetaInput');
 
-    const qtdDadosInput = document.getElementById('qtdDadosInput');
-    const pecasReprovadaInput = document.getElementById('pecasReprovadaInput'); // Capture rejected pieces
-    const dataHoraInput = document.getElementById('dataHoraInput');
+    const pecasEstimadas = parseInt(pecasEstimadasInput.value);
+    const selectedDate = dataHoraMetaInput.value; // This will be in YYYY-MM-DD format from the input type="date"
 
-    const qtdDados = parseInt(qtdDadosInput.value);
-    const pecasReprovadas = parseInt(pecasReprovadaInput.value) || 0; // Default to 0 if empty
-    const dateObj = new Date(dataHoraInput.value);
-    const dataHora = formatDateTimeForDB(dateObj);
-
-    if (isNaN(qtdDados) || qtdDados < 0) {
-        showError('Por favor, insira uma quantidade válida de peças produzidas.');
+    if (isNaN(pecasEstimadas) || pecasEstimadas < 0) {
+        showError('Por favor, insira uma quantidade válida de peças estimadas para a meta.');
         return;
     }
-    if (isNaN(pecasReprovadas) || pecasReprovadas < 0) {
-        showError('Por favor, insira uma quantidade válida de peças reprovadas.');
+    if (!selectedDate) {
+        showError('Por favor, selecione uma data para a meta.');
         return;
     }
+
+    // Format the date to DD/MM/YYYY before sending to the backend
+    const formattedDateForDB = formatDateForDB(selectedDate); // This is where the conversion happens
 
     try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/producao`, {
-            method: 'POST',
+        const metaUpdateResponse = await authenticatedFetch(`${API_BASE_URL}/meta_dia`, {
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ qtdDados, dataHora }),
+            body: JSON.stringify({
+                date: formattedDateForDB, // Sending DD/MM/YYYY
+                meta: pecasEstimadas
+            }),
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({error: "Erro desconhecido ao registrar."}));
-            throw new Error(errorData.error || 'Erro ao registrar produção.');
+        if (!metaUpdateResponse.ok) {
+            const errorData = await metaUpdateResponse.json().catch(() => ({ error: "Erro desconhecido ao atualizar meta diária." }));
+            throw new Error(errorData.error || 'Erro ao atualizar meta diária.');
         }
 
-        // Now, register rejected pieces in the 'eficiencia' table if > 0
-        if (pecasReprovadas > 0) {
-            const eficienciaResponse = await authenticatedFetch(`${API_BASE_URL}/eficiencia`, { // Assuming you'd have an /eficiencia endpoint for this. Need to add to server.js if not present.
+        showToast('Meta diária atualizada com sucesso!', 'success');
+        fetchIndicadores(document.getElementById('selectedDate').value); // Refresh dashboard indicators
+        // closeModal('registerModal'); // Keep modal open if user might want to register production
+    } catch (error) {
+        console.error('Erro ao atualizar meta diária:', error);
+        showError('Erro ao atualizar meta diária: ' + error.message);
+    }
+}
+
+
+/**
+ * Função para registrar produção (apenas peças produzidas e reprovadas).
+ * Envia os dados para o backend.
+ */
+async function registerProduction(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    const qtdDadosInput = document.getElementById('qtdDadosInput');
+    const pecasReprovadaInput = document.getElementById('pecasReprovadaInput');
+    const dataHoraProducaoInput = document.getElementById('dataHoraProducaoInput');
+
+    const qtdDados = parseInt(qtdDadosInput.value) || 0; // Set to 0 if empty or NaN
+    const pecasReprovadas = parseInt(pecasReprovadaInput.value) || 0;
+    const dateObj = new Date(dataHoraProducaoInput.value);
+    const dataHora = formatDateTimeForDB(dateObj); // This formats to 'DD/MM/YYYY HH:mm:ss'
+    const selectedDateForRefresh = dataHoraProducaoInput.value.split('T')[0];
+
+    // --- MODIFIED VALIDATION LOGIC ---
+    if (qtdDados < 0) { // Only check for negative values
+        showError('Por favor, insira uma quantidade válida de caixas produzidas (não negativa).');
+        return;
+    }
+    if (isNaN(pecasReprovadas) || pecasReprovadas < 0) {
+        showError('Por favor, insira uma quantidade válida de peças reprovadas (não negativa).');
+        return;
+    }
+
+    // Check if at least one field has a positive value
+    if (qtdDados === 0 && pecasReprovadas === 0) {
+        showError('Por favor, insira a quantidade de caixas produzidas ou peças reprovadas para registrar.');
+        return;
+    }
+    // --- END MODIFIED VALIDATION LOGIC ---
+
+    try {
+        // Register Production if qtdDados > 0
+        if (qtdDados > 0) {
+            const productionResponse = await authenticatedFetch(`${API_BASE_URL}/producao`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                body: JSON.stringify({ qtdDados, dataHora }), // Sends dataHora as 'DD/MM/YYYY HH:mm:ss'
+            });
+
+            if (!productionResponse.ok) {
+                const errorData = await productionResponse.json().catch(() => ({error: "Erro desconhecido ao registrar."}));
+                throw new Error(errorData.error || 'Erro ao registrar produção.');
+            }
+            showToast('Produção registrada com sucesso!', 'success');
+        }
+
+        // Register Rejected Pieces if pecasReprovadas > 0
+        if (pecasReprovadas > 0) {
+            const eficienciaResponse = await authenticatedFetch(`${API_BASE_URL}/eficiencia`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // This is the call that failed before.
+                // It now sends the 'flag' and 'dataHora' to the new dedicated endpoint.
                 body: JSON.stringify({ qtd: pecasReprovadas, flag: 'rejeitada', dataHora }),
             });
             if (!eficienciaResponse.ok) {
                 const errorData = await eficienciaResponse.json().catch(() => ({error: "Erro desconhecido ao registrar peças reprovadas."}));
                 console.error('Erro ao registrar peças reprovadas:', errorData.error);
-                // Don't throw a fatal error here, just notify
-                showError('Produção registrada, mas houve um erro ao registrar peças reprovadas: ' + errorData.error);
+                showError('Houve um erro ao registrar peças reprovadas: ' + errorData.error);
+            } else {
+                showToast('Peças reprovadas registradas com sucesso!', 'success');
             }
         }
 
-        const result = await response.json();
-        showToast(result.message, 'success');
-        closeModal('registerModal');
-        fetchIndicadores(document.getElementById('selectedDate').value);
+        // If only one of them was submitted, give a more specific message, otherwise combine.
+        if (qtdDados > 0 && pecasReprovadas > 0) {
+            showToast('Produção e peças reprovadas registradas com sucesso!', 'success');
+        } else if (qtdDados > 0) {
+             // Already handled by specific production success toast above
+        } else if (pecasReprovadas > 0) {
+            // Already handled by specific rejected pieces success toast above
+        }
 
+
+        // Reset only the production-related fields after successful submission
+        qtdDadosInput.value = '';
+        pecasReprovadaInput.value = '';
+
+        // Re-set the automatic date/time for the next entry
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        dataHoraProducaoInput.value = (new Date(now - offset)).toISOString().slice(0, 16);
+
+        fetchIndicadores(selectedDateForRefresh); // Refresh dashboard indicators
 
     } catch (error) {
         console.error('Erro:', error);
@@ -628,33 +754,26 @@ async function generateReport() {
             const errorMessage = errorData?.error || 'Erro desconhecido ao buscar dados para o relatório.';
             throw new Error(errorMessage);
         }
-        // dailyReportData now contains total pieces for estimated and produced
-        const dailyReportData = await response.json(); 
+        const dailyReportData = await response.json();
 
         const reportResultDiv = document.getElementById('reportResult');
-        reportResultDiv.innerHTML = ''; 
+        reportResultDiv.innerHTML = '';
         reportResultDiv.style.display = 'block';
 
         document.getElementById('downloadOptions').style.display = 'block';
 
-        // --- Calculate overall totals for the selected period from dailyReportData ---
-        // These variables will now sum up values ALREADY IN PIECES from the backend
-        let totalPiecesEstimatedOverall = 0; 
-        let totalPiecesProducedOverall = 0; 
-        let totalPiecesRejectedOverall = 0; 
+        let totalPiecesEstimatedOverall = 0;
+        let totalPiecesProducedOverall = 0;
+        let totalPiecesRejectedOverall = 0;
 
         dailyReportData.forEach(day => {
-            // day.meta_dia_total is already in pieces from server.js
-            totalPiecesEstimatedOverall += day.meta_dia_total || 0; 
-            // day.total_produzido_dia is already in pieces from server.js
-            totalPiecesProducedOverall += day.total_produzido_dia || 0; 
-            // day.total_reprovado_dia is already in pieces from server.js
-            totalPiecesRejectedOverall += day.total_reprovado_dia || 0; 
+            totalPiecesEstimatedOverall += day.meta_dia_total || 0;
+            totalPiecesProducedOverall += day.total_produzido_dia || 0;
+            totalPiecesRejectedOverall += day.total_reprovado_dia || 0;
         });
 
-        const totalPiecesApprovedOverall = totalPiecesProducedOverall - totalPiecesRejectedOverall; 
+        const totalPiecesApprovedOverall = totalPiecesProducedOverall - totalPiecesRejectedOverall;
 
-        // Calculate percentages based on overall totals
         let overallPercentApproved = 0;
         let overallPercentRejected = 0;
 
@@ -663,18 +782,17 @@ async function generateReport() {
             overallPercentRejected = ((totalPiecesRejectedOverall / totalPiecesProducedOverall) * 100).toFixed(2);
         }
 
-        // Convert overall piece totals back to boxes for display (using Math.floor for whole boxes)
-        const totalBoxesEstimatedOverall = Math.floor(totalPiecesEstimatedOverall / pecasPorCaixa); 
-        const totalBoxesProducedOverall = Math.floor(totalPiecesProducedOverall / pecasPorCaixa); 
+        const totalBoxesEstimatedOverall = Math.floor(totalPiecesEstimatedOverall / pecasPorCaixa);
+        const totalBoxesProducedOverall = Math.floor(totalPiecesProducedOverall / pecasPorCaixa);
 
-        // Format dates for display
         const startDateFormatted = new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR');
         const endDateFormatted = new Date(endDate + 'T00:00:00').toLocaleDateString('pt-BR');
         const periodoTexto = startDate === endDate ?
             `${startDateFormatted}` :
             `${startDateFormatted} a ${endDateFormatted}`;
 
-        // Create the HTML for the report summary using the calculated overall totals
+        const displayTotalPiecesProducedOverall = Number(totalPiecesProducedOverall);
+
         const summary = document.createElement('div');
         summary.className = 'report-summary';
         summary.innerHTML = `
@@ -686,7 +804,7 @@ async function generateReport() {
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Peças Produzidas:</div>
-                    <div class="summary-value">${totalBoxesProducedOverall} cx (${totalPiecesProducedOverall} peças)</div>
+                    <div class="summary-value">${totalBoxesProducedOverall} cx (${displayTotalPiecesProducedOverall} peças)</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Total Aprovados:</div>
@@ -709,7 +827,6 @@ async function generateReport() {
 
         reportResultDiv.appendChild(summary);
 
-        // Add table with daily details
         if (dailyReportData.length > 0) {
             const detailsSection = document.createElement('div');
             detailsSection.className = 'report-details';
@@ -721,7 +838,6 @@ async function generateReport() {
             const table = document.createElement('table');
             table.className = 'report-table';
 
-            // Table Header
             const thead = document.createElement('thead');
             thead.innerHTML = `
                 <tr>
@@ -731,24 +847,29 @@ async function generateReport() {
                     <th>Aprovado (peças)</th>
                     <th>Reprovado (peças)</th>
                     <th>% Aprovado</th>
-                </tr>
+                    <th>% Reprovado</th> </tr>
             `;
             table.appendChild(thead);
 
-            // Table Body
             const tbody = document.createElement('tbody');
 
             dailyReportData.forEach(day => {
                 const date = new Date(day.report_date).toLocaleDateString('pt-BR');
-                const produzido = day.total_produzido_dia || 0; // Already in pieces from backend
-                const reprovado = day.total_reprovado_dia || 0; // Already in pieces from backend
+                const produzido = day.total_produzido_dia || 0;
+                const reprovado = day.total_reprovado_dia || 0;
                 const aprovado = produzido - reprovado;
-                const meta = day.meta_dia_total || 0; // Already in pieces from backend
+                const meta = day.meta_dia_total || 0;
 
                 let percentAprovadoDia = 0;
                 if (produzido > 0) {
                     percentAprovadoDia = ((aprovado / produzido) * 100).toFixed(2);
                 }
+
+                let percentReprovadoDia = 0; // CALCULATE % REPROVADO
+                if (produzido > 0) { // Calculate based on total produced pieces
+                    percentReprovadoDia = ((reprovado / produzido) * 100).toFixed(2);
+                }
+
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -758,7 +879,7 @@ async function generateReport() {
                     <td>${aprovado}</td>
                     <td>${reprovado}</td>
                     <td>${percentAprovadoDia}%</td>
-                `;
+                    <td>${percentReprovadoDia}%</td> `;
                 tbody.appendChild(row);
             });
 
@@ -767,19 +888,18 @@ async function generateReport() {
             reportResultDiv.appendChild(detailsSection);
         }
 
-        // Update data for download (use the correct aggregated values)
         window.reportData = {
             summaryData: {
-                totalMeta: totalPiecesEstimatedOverall, // This is total pieces estimated
-                totalProduzido: totalPiecesProducedOverall, // This is total pieces produced
+                totalMeta: totalPiecesEstimatedOverall,
+                totalProduzido: totalPiecesProducedOverall,
                 totalAprovado: totalPiecesApprovedOverall,
                 totalReprovado: totalPiecesRejectedOverall,
                 percentAprovados: overallPercentApproved,
                 percentReprovados: overallPercentRejected,
-                caixasEstimadas: totalBoxesEstimatedOverall, // This is total boxes estimated
-                caixasProduzidas: totalBoxesProducedOverall // This is total boxes produced
+                caixasEstimadas: totalBoxesEstimatedOverall,
+                caixasProduzidas: totalBoxesProducedOverall
             },
-            detailedData: dailyReportData, 
+            detailedData: dailyReportData,
             startDate: startDate,
             endDate: endDate
         };
@@ -800,7 +920,7 @@ async function generateReport() {
     }
 }
 
-// --- Report Download Functions (NEWLY ADDED / MODIFIED) ---
+// --- Report Download Functions ---
 
 /**
  * Downloads the report as a TXT file.
@@ -827,7 +947,7 @@ function downloadReportTxt() {
     textContent += `Total Reprovados: ${summaryData.totalReprovado} peças (${summaryData.percentReprovados}%)\n\n`;
 
     textContent += `DETALHES POR DIA:\n`;
-    textContent += `Data\tMeta(peças)\tProduzido(peças)\tAprovado(peças)\tReprovado(peças)\t% Aprovado\n`;
+    textContent += `Data\tMeta(peças)\tProduzido(peças)\tAprovado(peças)\tReprovado(peças)\t% Aprovado\t% Reprovado\n`; // NEW HEADER
     detailedData.forEach(day => {
         const date = new Date(day.report_date).toLocaleDateString('pt-BR');
         const produzido = day.total_produzido_dia || 0;
@@ -835,7 +955,8 @@ function downloadReportTxt() {
         const aprovado = produzido - reprovado;
         const meta = day.meta_dia_total || 0;
         let percentAprovadoDia = (produzido > 0) ? ((aprovado / produzido) * 100).toFixed(2) : 0;
-        textContent += `${date}\t${meta}\t${produzido}\t${aprovado}\t${reprovado}\t${percentAprovadoDia}%\n`;
+        let percentReprovadoDia = (produzido > 0) ? ((reprovado / produzido) * 100).toFixed(2) : 0; // NEW CALC
+        textContent += `${date}\t${meta}\t${produzido}\t${aprovado}\t${reprovado}\t${percentAprovadoDia}%\t${percentReprovadoDia}%\n`; // NEW DATA
     });
 
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
@@ -875,7 +996,7 @@ function downloadReportExcel() {
 
     // Detailed section for CSV
     csvContent += `DETALHES POR DIA:\n`;
-    csvContent += `"Data","Meta (peças)","Produzido (peças)","Aprovado (peças)","Reprovado (peças)","% Aprovado"\n`;
+    csvContent += `"Data","Meta (peças)","Produzido (peças)","Aprovado (peças)","Reprovado (peças)","% Aprovado","% Reprovado"\n`; // NEW HEADER
     detailedData.forEach(day => {
         const date = new Date(day.report_date).toLocaleDateString('pt-BR');
         const produzido = day.total_produzido_dia || 0;
@@ -883,7 +1004,8 @@ function downloadReportExcel() {
         const aprovado = produzido - reprovado;
         const meta = day.meta_dia_total || 0;
         let percentAprovadoDia = (produzido > 0) ? ((aprovado / produzido) * 100).toFixed(2) : 0;
-        csvContent += `"${date}","${meta}","${produzido}","${aprovado}","${reprovado}","${percentAprovadoDia}%"\n`;
+        let percentReprovadoDia = (produzido > 0) ? ((reprovado / produzido) * 100).toFixed(2) : 0; // NEW CALC
+        csvContent += `"${date}","${meta}","${produzido}","${aprovado}","${reprovado}","${percentAprovadoDia}%","${percentReprovadoDia}%"\n`; // NEW DATA
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -926,27 +1048,27 @@ function printReport() {
             <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 h1, h2 { color: #007bff; text-align: center; }
-                .summary-grid { 
-                    display: grid; 
-                    grid-template-columns: repeat(2, 1fr); 
-                    gap: 15px; 
-                    margin-bottom: 30px; 
+                .summary-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 15px;
+                    margin-bottom: 30px;
                 }
-                .summary-item { 
-                    border: 1px solid #ddd; 
-                    padding: 15px; 
-                    border-left: 4px solid #007bff; 
+                .summary-item {
+                    border: 1px solid #ddd;
+                    padding: 15px;
+                    border-left: 4px solid #007bff;
                     margin-bottom: 10px; /* for print layout */
                 }
-                .summary-label { 
-                    font-weight: bold; 
-                    color: #666; 
-                    margin-bottom: 5px; 
+                .summary-label {
+                    font-weight: bold;
+                    color: #666;
+                    margin-bottom: 5px;
                 }
-                .summary-value { 
-                    font-size: 1.2em; 
-                    font-weight: bold; 
-                    color: #333; 
+                .summary-value {
+                    font-size: 1.2em;
+                    font-weight: bold;
+                    color: #333;
                 }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                 th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
@@ -960,7 +1082,7 @@ function printReport() {
         <body>
             <h1>RELATÓRIO DE PRODUÇÃO</h1>
             <h3 style="text-align: center;">Período: ${periodoTexto}</h3>
-            
+
             <h2>RESUMO DO PERÍODO</h2>
             <div class="summary-grid">
                 <div class="summary-item">
@@ -988,7 +1110,7 @@ function printReport() {
                     <div class="summary-value">${summaryData.percentReprovados}%</div>
                 </div>
             </div>
-            
+
             <h2>DETALHES POR DIA</h2>
             <table>
                 <thead>
@@ -999,7 +1121,7 @@ function printReport() {
                         <th>Aprovado (peças)</th>
                         <th>Reprovado (peças)</th>
                         <th>% Aprovado</th>
-                    </tr>
+                        <th>% Reprovado</th> </tr>
                 </thead>
                 <tbody>
                     ${detailedData.map(day => `
@@ -1010,7 +1132,7 @@ function printReport() {
                             <td>${(day.total_produzido_dia || 0) - (day.total_reprovado_dia || 0)}</td>
                             <td>${day.total_reprovado_dia || 0}</td>
                             <td>${((day.total_produzido_dia || 0) > 0) ? (((day.total_produzido_dia || 0) - (day.total_reprovado_dia || 0)) / (day.total_produzido_dia || 0) * 100).toFixed(2) : '0.00'}%</td>
-                        </tr>
+                            <td>${((day.total_produzido_dia || 0) > 0) ? ((day.total_reprovado_dia || 0) / (day.total_produzido_dia || 0) * 100).toFixed(2) : '0.00'}%</td> </tr>
                     `).join('')}
                 </tbody>
             </table>
@@ -1040,27 +1162,26 @@ function printReport() {
  */
 async function fetchProjects() {
     try {
-        // No authentication for this endpoint as it's visible to everyone
         const response = await fetch(`${API_BASE_URL}/projetos`);
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro ao buscar projetos. Resposta não JSON.' }));
             throw new Error(errorData.error || 'Erro ao buscar projetos.');
         }
         const projects = await response.json();
-        
+
         const projectsContainer = document.getElementById('projectsContainer');
         projectsContainer.innerHTML = '';
-        
+
         if (projects.length === 0) {
             projectsContainer.innerHTML = '<p class="no-projects">Nenhum projeto encontrado. Cadastre um novo projeto na aba "Cadastro de Projetos".</p>';
             return;
         }
-        
+
         projects.forEach(project => {
             const projectCard = createProjectCard(project);
             projectsContainer.appendChild(projectCard);
         });
-        
+
     } catch (error) {
         console.error('Erro ao carregar projetos:', error);
         showError('Erro ao carregar projetos: ' + error.message);
@@ -1123,16 +1244,16 @@ function createProjectCard(project) {
     for (let i = 1; i <= 7; i++) {
         const step = document.createElement("div");
         step.className = "step";
-        
+
         // Obter o percentual e status de atraso da etapa atual
         const percentage = project.percentuaisPorEtapa ? (project.percentuaisPorEtapa[i] !== undefined ? project.percentuaisPorEtapa[i] : 0) : 0;
         const isDelayed = project.atrasosPorEtapa ? (project.atrasosPorEtapa[i] === true) : false;
         const displayPercentage = Math.round(percentage);
-        
+
         // Exibir a porcentagem dentro da bolinha
         step.textContent = `${displayPercentage}%`;
 
-        // Adicionar classes com base na porcentagem e status de atraso
+        // Add classes based on percentage and delay status
         // Prioritize delay status
         if (isDelayed && percentage < 100) { // Check delay first, but only if not completed
              step.classList.add("delayed"); // Red
@@ -1143,7 +1264,7 @@ function createProjectCard(project) {
         } else {
             // Percentage is 0 and not delayed: remains default grey
         }
-        
+
         // Adicionar rótulo da etapa
         const stepLabel = document.createElement("div");
         stepLabel.className = "step-label";
@@ -1165,7 +1286,6 @@ function createProjectCard(project) {
         stepDate.className = "step-date";
 
         // Obter datas de início e fim da etapa
-        const dataInicio = project[`data_inicio_etapa${i}`];
         const dataFim = project[`data_fim_etapa${i}`];
 
         if (dataFim) {
@@ -1193,17 +1313,17 @@ function createProjectCard(project) {
     viewButton.className = "view-btn";
     viewButton.innerHTML = '<i class="fas fa-eye"></i> Detalhes';
     viewButton.addEventListener('click', () => openProjectDetailsModal(project.id));
-    
+
     const editButton = document.createElement('button');
     editButton.className = 'edit-btn';
     editButton.innerHTML = '<i class="fas fa-edit"></i> Editar';
     editButton.addEventListener('click', () => openEditProjectModal(project.id));
-    
+
     const deleteButton = document.createElement('button');
     deleteButton.className = 'delete-btn';
     deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i> Excluir';
     deleteButton.addEventListener('click', () => openDeleteConfirmModal(project.id, project.nome));
-    
+
     projectActions.appendChild(viewButton);
     // Apply role-based visibility to edit and delete buttons
     if (['diretoria', 'coordenador', 'lider'].includes(currentUserRole)) { // Edit
@@ -1212,12 +1332,12 @@ function createProjectCard(project) {
     if (['diretoria'].includes(currentUserRole)) { // Delete
         projectActions.appendChild(deleteButton);
     }
-    
+
     // Montar o card completo
     card.appendChild(projectInfo);
     card.appendChild(stepperWrapper);
     card.appendChild(projectActions);
-    
+
     return card;
 }
 
@@ -1231,32 +1351,32 @@ function checkIfProjectDelayed(project) {
     if (parseInt(project.etapa_atual) === 7) {
         return false;
     }
-    
+
     const today = new Date();
-    
+
     // Verificar se a data de entrega já passou (considerando o fim do dia)
     if (project.data_fim) {
         const dataFim = new Date(project.data_fim);
         // Ajustar para o final do dia (23:59:59.999)
         dataFim.setHours(23, 59, 59, 999);
-        
+
         if (today > dataFim) {
             return true;
         }
     }
-    
+
     // Verificar se a data de fim da etapa atual já passou (considerando o fim do dia)
     const dataFimEtapaAtual = project[`data_fim_etapa${project.etapa_atual}`];
     if (dataFimEtapaAtual) {
         const dataFim = new Date(dataFimEtapaAtual);
         // Ajustar para o final do dia (23:59:59.999)
         dataFim.setHours(23, 59, 59, 999);
-        
+
         if (today > dataFim) {
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -1270,12 +1390,12 @@ async function openProjectDetailsModal(projectId) {
         if (!response.ok) {
             throw new Error('Erro ao buscar detalhes do projeto.');
         }
-        
+
         const project = await response.json();
-        
+
         const detailsContent = document.getElementById('projectDetailsContent');
         detailsContent.innerHTML = '';
-        
+
         // Criar conteúdo de detalhes
         const detailsHTML = `
             <div class="project-details">
@@ -1284,16 +1404,16 @@ async function openProjectDetailsModal(projectId) {
                     <h4>Informações Gerais</h4>
                     <p><strong>Líder:</strong> ${project.lider}</p>
                     <p><strong>Etapa Atual:</strong> ${getEtapaNome(project.etapa_atual)} (${project.etapa_atual}/7)</p>
-                    <p><strong>Percentual Concluído:</strong> ${parseFloat(project.percentual_concluido).toFixed(2)}%</p>
+                    <p><strong>Percentual Concluido:</strong> ${parseFloat(project.percentual_concluido).toFixed(2)}%</p>
                     <p><strong>Data de Início:</strong> ${project.data_inicio ? new Date(project.data_inicio).toLocaleDateString('pt-BR') : 'Não definida'}</p>
                     <p><strong>Data de Entrega:</strong> ${project.data_fim ? new Date(project.data_fim).toLocaleDateString('pt-BR') : 'Não definida'}</p>
                 </div>
-                
+
                 <div class="details-section">
                     <h4>Equipe</h4>
                     <p>${getEquipeFormatada(project.equipe_json)}</p>
                 </div>
-                
+
                 <div class="details-section">
                     <h4>Cronograma de Etapas</h4>
                     <table class="details-table">
@@ -1312,13 +1432,13 @@ async function openProjectDetailsModal(projectId) {
                 </div>
             </div>
         `;
-        
+
         detailsContent.innerHTML = detailsHTML;
-        
+
         // Exibir o modal
         const modal = document.getElementById('projectDetailsModal');
         modal.style.display = 'flex';
-        
+
     } catch (error) {
         console.error('Erro ao abrir detalhes do projeto:', error);
         showError('Erro ao abrir detalhes do projeto: ' + error.message);
@@ -1350,7 +1470,7 @@ function getEtapaNome(etapaNumero) {
  */
 function getEquipeFormatada(equipeJson) {
     if (!equipeJson) return 'Nenhum membro definido';
-    
+
     try {
         const equipe = JSON.parse(equipeJson);
         if (Array.isArray(equipe) && equipe.length > 0) {
@@ -1359,7 +1479,7 @@ function getEquipeFormatada(equipeJson) {
     } catch (e) {
         console.error('Erro ao parsear equipe JSON:', e);
     }
-    
+
     return 'Nenhum membro definido';
 }
 
@@ -1369,43 +1489,41 @@ function getEquipeFormatada(equipeJson) {
  * @returns {string} HTML do cronograma.
  */
 function getCronogramaEtapasHTML(project) {
-    let html = ''; //
-    const etapaAtual = parseInt(project.etapa_atual); //
-    const today = new Date(); //
-    today.setHours(0,0,0,0); // Reset time to compare dates only
+    let html = '';
+    const etapaAtual = parseInt(project.etapa_atual);
+    const today = new Date();
+    today.setHours(0,0,0,0);
 
-    for (let i = 1; i <= 7; i++) { //
-        const dataInicio = project[`data_inicio_etapa${i}`]; //
-        const dataFim = project[`data_fim_etapa${i}`]; //
-        
-        let status = ''; //
-        let statusClass = ''; //
-        
-        // Explicitly handle the "Concluído" stage
-        if (i === 7 && etapaAtual === 7) { // If it's the final stage and the project is at this stage
+    for (let i = 1; i <= 7; i++) {
+        const dataInicio = project[`data_inicio_etapa${i}`];
+        const dataFim = project[`data_fim_etapa${i}`];
+
+        let status = '';
+        let statusClass = '';
+
+        if (i === 7 && etapaAtual === 7) {
             status = 'Concluída';
             statusClass = 'status-completed';
-        } else if (i < etapaAtual) { // Stages before the current stage
+        } else if (i < etapaAtual) {
             status = 'Concluída';
             statusClass = 'status-completed';
-        } else if (i === etapaAtual) { // Current stage
+        } else if (i === etapaAtual) {
             status = 'Em andamento';
             statusClass = 'status-active';
-            
-            // Check for delay if the stage has a defined end date and that date has passed
+
             if (dataFim) {
                 const etapaFimObj = new Date(dataFim);
-                etapaFimObj.setHours(23,59,59,999); // End of the day
+                etapaFimObj.setHours(23,59,59,999);
                 if (today > etapaFimObj) {
                     status = 'Em andamento (Atrasada)';
                     statusClass = 'status-delayed';
                 }
             }
-        } else { // Stages after the current stage
+        } else {
             status = 'Pendente';
             statusClass = 'status-pending';
         }
-        
+
         html += `
             <tr>
                 <td>${i} - ${getEtapaNome(i)}</td>
@@ -1413,10 +1531,10 @@ function getCronogramaEtapasHTML(project) {
                 <td>${dataFim ? formatDate(dataFim, true) : 'Não definida'}</td>
                 <td class="${statusClass}">${status}</td>
             </tr>
-        `; //
+        `;
     }
-    
-    return html; //
+
+    return html;
 }
 /**
  * Abre o modal de edição de projeto.
@@ -1428,15 +1546,15 @@ async function openEditProjectModal(projectId) {
         if (!response.ok) {
             throw new Error('Erro ao buscar dados do projeto para edição.');
         }
-        
+
         const project = await response.json();
-        
+
         // Preencher o formulário de edição
         document.getElementById('editProjectId').value = project.id;
         document.getElementById('editProjetoNome').value = project.nome;
         document.getElementById('editProjetoLider').value = project.lider;
         document.getElementById('editProjetoEtapa').value = project.etapa_atual;
-        
+
         const editDataInicioInput = document.getElementById('editProjetoDataInicio');
         const editDataFimInput = document.getElementById('editProjetoDataFim');
 
@@ -1452,20 +1570,20 @@ async function openEditProjectModal(projectId) {
             editDataFimInput.disabled = false;
             editDataFimInput.classList.remove('disabled-field');
         }
-        
+
         // Datas gerais
         if (project.data_inicio) {
             editDataInicioInput.value = project.data_inicio.split('T')[0];
         } else {
             editDataInicioInput.value = '';
         }
-        
+
         if (project.data_fim) {
             editDataFimInput.value = project.data_fim.split('T')[0];
         } else {
             editDataFimInput.value = '';
         }
-        
+
         // Equipe
         let equipe = [];
         try {
@@ -1478,12 +1596,12 @@ async function openEditProjectModal(projectId) {
         } catch (e) {
             console.error('Erro ao parsear equipe JSON:', e);
         }
-        
+
         // Datas das etapas
         for (let i = 1; i <= 7; i++) {
             const dataInicio = project[`data_inicio_etapa${i}`];
             const dataFim = project[`data_fim_etapa${i}`];
-            
+
             const editDataInicioEtapaInput = document.getElementById(`editDataInicioEtapa${i}`);
             const editDataFimEtapaInput = document.getElementById(`editDataFimEtapa${i}`);
 
@@ -1499,24 +1617,24 @@ async function openEditProjectModal(projectId) {
                 editDataFimEtapaInput.disabled = false;
                 editDataFimEtapaInput.classList.remove('disabled-field');
             }
-            
+
             if (dataInicio) {
                 editDataInicioEtapaInput.value = dataInicio.replace(' ', 'T').slice(0, 16);
             } else {
                 editDataInicioEtapaInput.value = '';
             }
-            
+
             if (dataFim) {
                 editDataFimEtapaInput.value = dataFim.replace(' ', 'T').slice(0, 16);
             } else {
                 editDataFimEtapaInput.value = '';
             }
         }
-        
+
         // Exibir o modal
         const modal = document.getElementById('editProjectModal');
         modal.style.display = 'flex';
-        
+
     } catch (error) {
         console.error('Erro ao abrir edição do projeto:', error);
         showError('Erro ao abrir edição do projeto: ' + error.message);
@@ -1529,13 +1647,13 @@ async function openEditProjectModal(projectId) {
  */
 async function saveProjectChanges(event) {
     event.preventDefault();
-    
+
     const projectId = document.getElementById('editProjectId').value;
     const nome = document.getElementById('editProjetoNome').value;
     const lider = document.getElementById('editProjetoLider').value;
     const equipe = document.getElementById('editProjetoEquipe').value;
     const etapa_atual = document.getElementById('editProjetoEtapa').value;
-    
+
     let data_inicio = document.getElementById('editProjetoDataInicio').value;
     let data_fim = document.getElementById('editProjetoDataFim').value;
 
@@ -1553,7 +1671,7 @@ async function saveProjectChanges(event) {
             console.warn('Could not retrieve original project dates for leader role, proceeding with current form values:', error);
         }
     }
-    
+
     const datas = {};
     for (let i = 1; i <= 7; i++) {
         const dataInicioInput = document.getElementById(`editDataInicioEtapa${i}`);
@@ -1570,19 +1688,19 @@ async function saveProjectChanges(event) {
             if (dataInicioInput.value) {
                 datas[`data_inicio_etapa${i}`] = dataInicioInput.value;
             }
-            
+
             if (dataFimInput.value) {
                 datas[`data_fim_etapa${i}`] = dataFimInput.value;
             }
         }
     }
-    
+
     // Validar campos obrigatórios
     if (!nome || !lider || !etapa_atual) {
         showError('Nome, líder e etapa atual são obrigatórios.');
         return;
     }
-    
+
     try {
         const response = await authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}`, {
             method: 'PUT',
@@ -1594,22 +1712,22 @@ async function saveProjectChanges(event) {
                 lider,
                 equipe,
                 etapa_atual,
-                data_inicio, // Será o original se currentUserRole for 'lider'
-                data_fim,    // Será o original se currentUserRole for 'lider'
-                ...datas     // Datas das etapas, tratadas conforme o perfil
+                data_inicio,
+                data_fim,
+                ...datas
             }),
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido ao atualizar projeto.' }));
             throw new Error(errorData.error || 'Erro ao atualizar projeto.');
         }
-        
+
         const result = await response.json();
         showToast(result.message, 'success');
         closeModal('editProjectModal');
         fetchProjects(); // Atualizar a lista de projetos
-        
+
     } catch (error) {
         console.error('Erro ao salvar alterações do projeto:', error);
         showError('Erro ao salvar alterações: ' + error.message);
@@ -1623,10 +1741,10 @@ async function saveProjectChanges(event) {
  */
 function openDeleteConfirmModal(projectId, projectName) {
     document.getElementById('deleteProjectName').textContent = projectName;
-    
+
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
     confirmDeleteBtn.onclick = () => deleteProject(projectId);
-    
+
     const modal = document.getElementById('confirmDeleteModal');
     modal.style.display = 'flex';
 }
@@ -1643,17 +1761,17 @@ async function deleteProject(projectId) {
                 'Content-Type': 'application/json',
             }
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido ao excluir projeto.' }));
             throw new Error(errorData.error || 'Erro ao excluir projeto.');
         }
-        
+
         const result = await response.json();
         showToast(result.message, 'success');
         closeModal('confirmDeleteModal');
         fetchProjects(); // Atualizar a lista de projetos
-        
+
     } catch (error) {
         console.error('Erro ao excluir projeto:', error);
         showError('Erro ao excluir projeto: ' + error.message);
@@ -1667,23 +1785,20 @@ async function deleteProject(projectId) {
  */
 async function openSubEtapasModal(projectId, etapaPrincipal) {
     try {
-        // Buscar sub-etapas do projeto para a etapa específica
         const response = await fetch(`${API_BASE_URL}/projetos/${projectId}/sub-etapas?etapa=${etapaPrincipal}`);
         if (!response.ok) {
             throw new Error('Erro ao buscar sub-etapas do projeto.');
         }
-        
+
         const subEtapas = await response.json();
-        
-        // Atualizar título do modal
+
         document.getElementById('subEtapasTitulo').textContent = `Etapa ${etapaPrincipal} - ${getEtapaNome(etapaPrincipal)}`;
         document.getElementById('subEtapasProjetoId').value = projectId;
         document.getElementById('subEtapasEtapaPrincipal').value = etapaPrincipal;
-        
-        // Limpar e preencher a lista de sub-etapas
+
         const subEtapasList = document.getElementById('subEtapasList');
         subEtapasList.innerHTML = '';
-        
+
         if (subEtapas.length === 0) {
             subEtapasList.innerHTML = '<p class="no-sub-etapas">Nenhuma sub-etapa cadastrada para esta etapa.</p>';
         } else {
@@ -1692,14 +1807,13 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
                 subEtapaItem.className = 'sub-etapa-item';
                 subEtapaItem.dataset.id = subEtapa.id;
 
-                // Check for individual sub-task delay
                 const today = new Date();
-                today.setHours(0, 0, 0, 0); // Compare date part only
+                today.setHours(0, 0, 0, 0);
                 let isSubEtapaDelayed = false;
                 if (!subEtapa.concluida && subEtapa.data_prevista_conclusao) {
                     try {
                         const dueDate = new Date(subEtapa.data_prevista_conclusao);
-                        dueDate.setHours(0, 0, 0, 0); // Compare date part only
+                        dueDate.setHours(0, 0, 0, 0);
                         if (dueDate < today) {
                             isSubEtapaDelayed = true;
                         }
@@ -1708,56 +1822,52 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
                     }
                 }
 
-                // Apply status classes for visual styling
                 if (subEtapa.concluida) {
-                    subEtapaItem.classList.add('sub-etapa-concluida-visual'); // Green
+                    subEtapaItem.classList.add('sub-etapa-concluida-visual');
                 } else if (isSubEtapaDelayed) {
-                    subEtapaItem.classList.add('sub-etapa-atrasada'); // Red
+                    subEtapaItem.classList.add('sub-etapa-atrasada');
                 } else {
-                    subEtapaItem.classList.add('sub-etapa-em-andamento'); // Blue
+                    subEtapaItem.classList.add('sub-etapa-em-andamento');
                 }
-                
+
                 const descricao = document.createElement('div');
                 descricao.className = 'sub-etapa-descricao';
                 descricao.textContent = subEtapa.descricao;
-                
+
                 if (subEtapa.concluida) {
                     descricao.innerHTML += ' <span class="sub-etapa-concluida">(Concluída)</span>';
                 }
-                
+
                 const actions = document.createElement('div');
                 actions.className = 'sub-etapa-actions';
 
-                // Add Edit Button (Diretoria, Coordenador, Líder)
                 if (['diretoria', 'coordenador', 'lider'].includes(currentUserRole)) {
                     const editBtn = document.createElement('button');
                     editBtn.className = 'edit-btn small';
                     editBtn.innerHTML = '<i class="fas fa-edit"></i>';
                     editBtn.title = 'Editar sub-etapa';
-                    editBtn.addEventListener('click', () => openEditSubEtapaModal(subEtapa)); // Pass the whole subEtapa object
+                    editBtn.addEventListener('click', () => openEditSubEtapaModal(subEtapa));
                     actions.appendChild(editBtn);
                 }
 
-                // Add Complete/Uncomplete Button (Diretoria, Coordenador, Líder)
                 if (['diretoria', 'coordenador', 'lider'].includes(currentUserRole)) {
                     if (!subEtapa.concluida) {
                         const completeBtn = document.createElement('button');
                         completeBtn.className = 'complete-btn small';
                         completeBtn.innerHTML = '<i class="fas fa-check"></i>';
                         completeBtn.title = 'Marcar como concluída';
-                        completeBtn.addEventListener('click', () => updateSubEtapaStatus(subEtapa.id, true)); // Renamed function
+                        completeBtn.addEventListener('click', () => updateSubEtapaStatus(subEtapa.id, true));
                         actions.appendChild(completeBtn);
                     } else {
                         const uncompleteBtn = document.createElement('button');
                         uncompleteBtn.className = 'uncomplete-btn small';
                         uncompleteBtn.innerHTML = '<i class="fas fa-undo"></i>';
                         uncompleteBtn.title = 'Marcar como não concluída';
-                        uncompleteBtn.addEventListener('click', () => updateSubEtapaStatus(subEtapa.id, false)); // Renamed function
+                        uncompleteBtn.addEventListener('click', () => updateSubEtapaStatus(subEtapa.id, false));
                         actions.appendChild(uncompleteBtn);
                     }
                 }
 
-                // Add Delete Button (Diretoria)
                 if (['diretoria'].includes(currentUserRole)) {
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn small';
@@ -1769,33 +1879,29 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
 
                 subEtapaItem.appendChild(descricao);
 
-                // Add due date display
                 const dueDateDiv = document.createElement('div');
                 dueDateDiv.className = 'sub-etapa-due-date';
-                // Format date if exists
                 let dueDateText = 'Sem data prevista';
                 if (subEtapa.data_prevista_conclusao) {
                      try {
                          const dateStr = subEtapa.data_prevista_conclusao.split('T')[0];
-                         const date = new Date(dateStr + 'T00:00:00Z'); // Treat as UTC midnight
+                         const date = new Date(dateStr + 'T00:00:00Z');
                          if (!isNaN(date.getTime())) {
                              dueDateText = `Previsto: ${date.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
                          }
                      } catch (e) { console.error("Error parsing due date:", e); }
                 }
                 dueDateDiv.textContent = dueDateText;
-                subEtapaItem.appendChild(dueDateDiv); // Add due date below description
+                subEtapaItem.appendChild(dueDateDiv);
 
-                subEtapaItem.appendChild(actions); // Add actions after due date
+                subEtapaItem.appendChild(actions);
                 subEtapasList.appendChild(subEtapaItem);
             });
         }
-        
-        // Limpar formulário de adição
+
         document.getElementById('subEtapaDescricao').value = '';
-        document.getElementById('newSubEtapaDueDate').value = ''; // Limpar input de data prevista
-        
-        // Esconder/Mostrar formulário de adicionar sub-etapa com base no perfil
+        document.getElementById('newSubEtapaDueDate').value = '';
+
         const addSubEtapaFormContainer = document.querySelector('.sub-etapas-form');
         if (['diretoria', 'coordenador', 'lider'].includes(currentUserRole)) {
             addSubEtapaFormContainer.style.display = 'block';
@@ -1803,10 +1909,9 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
             addSubEtapaFormContainer.style.display = 'none';
         }
 
-        // Exibir o modal
         const modal = document.getElementById('subEtapasModal');
         modal.style.display = 'flex';
-        
+
     } catch (error) {
         console.error('Erro ao abrir modal de sub-etapas:', error);
         showError('Erro ao abrir sub-etapas: ' + error.message);
@@ -1819,17 +1924,17 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
  */
 async function addSubEtapa(event) {
     event.preventDefault();
-    
+
     const projetoId = document.getElementById('subEtapasProjetoId').value;
     const etapaPrincipal = document.getElementById('subEtapasEtapaPrincipal').value;
     const descricao = document.getElementById('subEtapaDescricao').value;
-    const dataPrevista = document.getElementById('newSubEtapaDueDate').value; // Capturar a data prevista
-    
+    const dataPrevista = document.getElementById('newSubEtapaDueDate').value;
+
     if (!descricao) {
         showError('A descrição da sub-etapa é obrigatória.');
         return;
     }
-    
+
     try {
         const response = await authenticatedFetch(`${API_BASE_URL}/projetos/${projetoId}/sub-etapas`, {
             method: 'POST',
@@ -1839,21 +1944,20 @@ async function addSubEtapa(event) {
             body: JSON.stringify({
                 etapa_principal: etapaPrincipal,
                 descricao,
-                data_prevista_conclusao: dataPrevista // Incluir data prevista
+                data_prevista_conclusao: dataPrevista
             }),
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido ao adicionar sub-etapa.' }));
             throw new Error(errorData.error || 'Erro ao adicionar sub-etapa.');
         }
-        
+
         const result = await response.json();
         showToast(result.message, 'success');
-        
-        // Reabrir o modal para atualizar a lista
+
         openSubEtapasModal(projetoId, etapaPrincipal);
-        
+
     } catch (error) {
         console.error('Erro ao adicionar sub-etapa:', error);
         showError('Erro ao adicionar sub-etapa: ' + error.message);
@@ -1888,7 +1992,6 @@ async function updateSubEtapaStatus(subEtapaId, concluida) {
         const result = await response.json();
         showToast(result.message, "success");
 
-        // Reabrir o modal principal para atualizar a lista
         openSubEtapasModal(projetoId, etapaPrincipal);
 
     } catch (error) {
@@ -1905,7 +2008,7 @@ async function updateSubEtapaStatus(subEtapaId, concluida) {
 async function deleteSubEtapa(subEtapaId) {
     const projetoId = document.getElementById('subEtapasProjetoId').value;
     const etapaPrincipal = document.getElementById('subEtapasEtapaPrincipal').value;
-    
+
     try {
         const response = await authenticatedFetch(`${API_BASE_URL}/sub-etapas/${subEtapaId}`, {
             method: 'DELETE',
@@ -1913,18 +2016,17 @@ async function deleteSubEtapa(subEtapaId) {
                 'Content-Type': 'application/json',
             }
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido ao excluir sub-etapa.' }));
             throw new Error(errorData.error || 'Erro ao excluir sub-etapa.');
         }
-        
+
         const result = await response.json();
         showToast(result.message, 'success');
-        
-        // Reabrir o modal para atualizar a lista
+
         openSubEtapasModal(projetoId, etapaPrincipal);
-        
+
     } catch (error) {
         console.error('Erro ao excluir sub-etapa:', error);
         showError('Erro ao excluir sub-etapa: ' + error.message);
@@ -1941,35 +2043,35 @@ async function deleteSubEtapa(subEtapaId) {
  */
 async function cadastrarProjeto(event) {
     event.preventDefault();
-    
+
     const nome = document.getElementById('projetoNome').value;
     const lider = document.getElementById('projetoLider').value;
     const equipe = document.getElementById('projetoEquipe').value;
     const etapa_atual = document.getElementById('projetoEtapa').value;
     const data_inicio = document.getElementById('projetoDataInicio').value;
     const data_fim = document.getElementById('projetoDataFim').value;
-    
+
     // Datas das etapas
     const datas = {};
     for (let i = 1; i <= 7; i++) {
         const dataInicio = document.getElementById(`dataInicioEtapa${i}`).value;
         const dataFim = document.getElementById(`dataFimEtapa${i}`).value;
-        
+
         if (dataInicio) {
             datas[`data_inicio_etapa${i}`] = dataInicio;
         }
-        
+
         if (dataFim) {
             datas[`data_fim_etapa${i}`] = dataFim;
         }
     }
-    
+
     // Validar campos obrigatórios
     if (!nome || !lider) {
         showError('Nome e líder do projeto são obrigatórios.');
         return;
     }
-    
+
     try {
         const response = await authenticatedFetch(`${API_BASE_URL}/projetos`, {
             method: 'POST',
@@ -1986,43 +2088,43 @@ async function cadastrarProjeto(event) {
                 ...datas
             }),
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido ao cadastrar projeto.' }));
             throw new Error(errorData.error || 'Erro ao cadastrar projeto.');
         }
-        
+
         const result = await response.json();
-        
+
         // Exibir mensagem de sucesso
         const statusMsg = document.getElementById('statusMsg');
         statusMsg.textContent = result.message;
         statusMsg.className = 'success';
         statusMsg.style.display = 'block';
-        
+
         // Limpar formulário
         document.getElementById('cadastroProjetoForm').reset();
-        
+
         // Esconder mensagem após alguns segundos
         setTimeout(() => {
             statusMsg.style.display = 'none';
         }, 5000);
-        
+
         // Mudar para a tela de projetos e atualizar a lista
         setTimeout(() => {
             switchScreen('tela2');
             fetchProjects();
         }, 1500);
-        
+
     } catch (error) {
         console.error('Erro ao cadastrar projeto:', error);
-        
+
         // Exibir mensagem de erro
         const statusMsg = document.getElementById('statusMsg');
         statusMsg.textContent = 'Erro ao cadastrar projeto: ' + error.message;
         statusMsg.className = 'error';
         statusMsg.style.display = 'block';
-        
+
         // Esconder mensagem após alguns segundos
         setTimeout(() => {
             statusMsg.style.display = 'none';
@@ -2038,7 +2140,7 @@ function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'flex';
-        modal.querySelector('.modal-content').classList.add('show'); // Adiciona a classe para o efeito
+        modal.querySelector('.modal-content').classList.add('show');
     }
 }
 
@@ -2071,7 +2173,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (logoutButton) {
         logoutButton.addEventListener('click', handleLogout);
     }
-    
+
     // Event listeners para modais
     document.querySelectorAll('.close-modal, .close, .close-modal-btn').forEach(element => {
         element.addEventListener('click', function() {
@@ -2081,62 +2183,65 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-    
+
     // Fechar modal ao clicar fora do conteúdo
     window.addEventListener('click', function(event) {
         document.querySelectorAll('.modal').forEach(modal => {
-            if (event.target === modal && modal.id !== 'loginModal') { // Não fechar o modal de login ao clicar fora
+            if (event.target === modal && modal.id !== 'loginModal') {
                 modal.style.display = 'none';
             }
         });
     });
-    
+
     // Botão de registrar produção
     const registerProductionBtn = document.getElementById('registerProductionBtn');
     if (registerProductionBtn) {
         registerProductionBtn.addEventListener('click', openRegisterModal);
     }
-    
-    // Formulário de registro de produção
+
+    // Novo: Botão para atualizar meta dentro do modal de registro
+    const updateMetaButton = document.getElementById('updateMetaBtn');
+    if (updateMetaButton) {
+        updateMetaButton.addEventListener('click', updateDailyMeta);
+    }
+
+    // Formulário de registro de produção (agora só para produção/reprovados)
     const registerProductionForm = document.getElementById('registerProductionForm');
     if (registerProductionForm) {
         registerProductionForm.addEventListener('submit', registerProduction);
     }
-    
+
     // Botão de gerar relatório
     const generateReportModalBtn = document.getElementById('generateReportModalBtn');
     if (generateReportModalBtn) {
         generateReportModalBtn.addEventListener('click', function() {
             const modal = document.getElementById('reportModal');
             if (modal) {
-                // Definir datas padrão (último mês)
                 const today = new Date();
                 const lastMonth = new Date();
                 lastMonth.setMonth(today.getMonth() - 1);
-                
+
                 document.getElementById('reportStartDate').value = lastMonth.toISOString().split('T')[0];
                 document.getElementById('reportEndDate').value = today.toISOString().split('T')[0];
-                
-                // Limpar resultados anteriores
+
                 document.getElementById('reportResult').innerHTML = '';
                 document.getElementById('reportResult').style.display = 'none';
                 document.getElementById('downloadOptions').style.display = 'none';
-                
+
                 modal.style.display = 'flex';
             }
         });
     }
-    
+
     // Botão de gerar relatório dentro do modal
     const generateReportBtn = document.getElementById('generateReportBtn');
     if (generateReportBtn) {
         generateReportBtn.addEventListener('click', generateReport);
     }
-    
-    // NEW: Report Download Buttons - Event Listeners
+
+    // Report Download Buttons - Event Listeners
     const downloadTxtBtn = document.getElementById('downloadTxt');
     const downloadExcelBtn = document.getElementById('downloadExcel');
-    const downloadPdfBtn = document.getElementById('downloadPdf');
     const printReportBtn = document.getElementById('printReport');
 
     if (downloadTxtBtn) {
@@ -2145,174 +2250,40 @@ document.addEventListener('DOMContentLoaded', function() {
     if (downloadExcelBtn) {
         downloadExcelBtn.addEventListener('click', downloadReportExcel);
     }
-    if (downloadPdfBtn) {
-        downloadPdfBtn.addEventListener('click', downloadReportPdf);
-    }
     if (printReportBtn) {
         printReportBtn.addEventListener('click', printReport);
     }
-    // END NEW: Report Download Buttons
 
     // Botão de atualizar projetos
     const refreshProjectsBtn = document.getElementById('refreshProjects');
     if (refreshProjectsBtn) {
         refreshProjectsBtn.addEventListener('click', fetchProjects);
     }
-    
-    
+
+
     // Formulário de cadastro de projeto
     const cadastroProjetoForm = document.getElementById('cadastroProjetoForm');
     if (cadastroProjetoForm) {
         cadastroProjetoForm.addEventListener('submit', cadastrarProjeto);
     }
-    
+
     // Formulário de edição de projeto
     const editProjectForm = document.getElementById('editProjectForm');
     if (editProjectForm) {
         editProjectForm.addEventListener('submit', saveProjectChanges);
     }
-    
+
     // Formulário de adição de sub-etapa
     const addSubEtapaForm = document.getElementById('addSubEtapaForm');
     if (addSubEtapaForm) {
         addSubEtapaForm.addEventListener('submit', addSubEtapa);
     }
-    
+
     // Carregar projetos se estiver na tela de projetos
     if (document.querySelector('.tela.active').id === 'tela2') {
         fetchProjects();
     }
 });
-
-/**
- * Downloads the report as a PDF file (client-side generation).
- * This uses html2canvas to render HTML to an image, and jspdf to put the image into a PDF.
- */
-async function downloadReportPdf() {
-    if (!window.reportData) {
-        showError('Nenhum dado de relatório para baixar.');
-        return;
-    }
-
-    showToast('Gerando PDF... Isso pode levar alguns segundos.', 'info', 5000);
-
-    const { summaryData, detailedData, startDate, endDate } = window.reportData;
-
-    const startDateFormatted = new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR');
-    const endDateFormatted = new Date(endDate + 'T00:00:00').toLocaleDateString('pt-BR');
-    const periodoTexto = startDate === endDate ? `${startDateFormatted}` : `${startDateFormatted} a ${endDateFormatted}`;
-
-    // Create the HTML content similar to the print function
-    // Wrap it in a div that can be rendered by html2canvas
-    const reportContentDiv = document.createElement('div');
-    reportContentDiv.style.padding = '20px';
-    reportContentDiv.style.fontFamily = 'Arial, sans-serif';
-    reportContentDiv.style.backgroundColor = '#ffffff'; // Ensure white background for PDF
-
-    reportContentDiv.innerHTML = `
-        <h1 style="color: #007bff; text-align: center;">RELATÓRIO DE PRODUÇÃO</h1>
-        <h3 style="text-align: center;">Período: ${periodoTexto}</h3>
-        
-        <h2 style="color: #007bff; text-align: center; margin-top: 30px;">RESUMO DO PERÍODO</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 30px;">
-            <div style="border: 1px solid #ddd; padding: 15px; border-left: 4px solid #007bff;">
-                <div style="font-weight: bold; color: #666; margin-bottom: 5px;">Peças Estimadas:</div>
-                <div style="font-size: 1.2em; font-weight: bold; color: #333;">${summaryData.caixasEstimadas} cx (${summaryData.totalMeta} peças)</div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 15px; border-left: 4px solid #007bff;">
-                <div style="font-weight: bold; color: #666; margin-bottom: 5px;">Peças Produzidas:</div>
-                <div style="font-size: 1.2em; font-weight: bold; color: #333;">${summaryData.caixasProduzidas} cx (${summaryData.totalProduzido} peças)</div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 15px; border-left: 4px solid #007bff;">
-                <div style="font-weight: bold; color: #666; margin-bottom: 5px;">Total Aprovados:</div>
-                <div style="font-size: 1.2em; font-weight: bold; color: #333;">${summaryData.totalAprovado} peças</div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 15px; border-left: 4px solid #007bff;">
-                <div style="font-weight: bold; color: #666; margin-bottom: 5px;">Total Reprovados:</div>
-                <div style="font-size: 1.2em; font-weight: bold; color: #333;">${summaryData.totalReprovado} peças</div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 15px; border-left: 4px solid #007bff;">
-                <div style="font-weight: bold; color: #666; margin-bottom: 5px;">% Aprovados:</div>
-                <div style="font-size: 1.2em; font-weight: bold; color: #333;">${summaryData.percentAprovados}%</div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 15px; border-left: 4px solid #007bff;">
-                <div style="font-weight: bold; color: #666; margin-bottom: 5px;">% Reprovados:</div>
-                <div style="font-size: 1.2em; font-weight: bold; color: #333;">${summaryData.percentReprovados}%</div>
-            </div>
-        </div>
-        
-        <h2 style="color: #007bff; text-align: center; margin-top: 30px;">DETALHES POR DIA</h2>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
-            <thead>
-                <tr style="background-color: #007bff; color: white;">
-                    <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd;">Data</th>
-                    <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd;">Meta (peças)</th>
-                    <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd;">Produzido (peças)</th>
-                    <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd;">Aprovado (peças)</th>
-                    <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd;">Reprovado (peças)</th>
-                    <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd;">% Aprovado</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${detailedData.map((day, index) => `
-                    <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
-                        <td style="padding: 10px 15px; border: 1px solid #ddd;">${new Date(day.report_date).toLocaleDateString('pt-BR')}</td>
-                        <td style="padding: 10px 15px; border: 1px solid #ddd;">${day.meta_dia_total || 0}</td>
-                        <td style="padding: 10px 15px; border: 1px solid #ddd;">${day.total_produzido_dia || 0}</td>
-                        <td style="padding: 10px 15px; border: 1px solid #ddd;">${(day.total_produzido_dia || 0) - (day.total_reprovado_dia || 0)}</td>
-                        <td style="padding: 10px 15px; border: 1px solid #ddd;">${day.total_reprovado_dia || 0}</td>
-                        <td style="padding: 10px 15px; border: 1px solid #ddd;">${((day.total_produzido_dia || 0) > 0) ? (((day.total_produzido_dia || 0) - (day.total_reprovado_dia || 0)) / (day.total_produzido_dia || 0) * 100).toFixed(2) : '0.00'}%</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-
-    // Append to body temporarily for html2canvas
-    document.body.appendChild(reportContentDiv);
-
-    try {
-        const canvas = await html2canvas(reportContentDiv, {
-            scale: 2, // Higher scale for better resolution PDF
-            useCORS: true, // If you have external images/fonts, enable this
-            logging: false, // Suppress console logging by html2canvas
-            windowWidth: reportContentDiv.scrollWidth, // Capture full width
-            windowHeight: reportContentDiv.scrollHeight // Capture full height
-        });
-
-        // Initialize jsPDF
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for millimeters, 'a4' format
-
-        const imgData = canvas.toDataURL('image/png');
-        const imgWidth = 210; // A4 width in mm
-        const pageHeight = 297; // A4 height in mm
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft >= 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-        }
-
-        const filename = `relatorio_producao_${periodoTexto.replace(/[/ ]/g, '_')}.pdf`;
-        pdf.save(filename);
-        showToast('Relatório PDF gerado com sucesso!', 'success');
-
-    } catch (error) {
-        console.error('Erro ao gerar relatório PDF (cliente-side):', error);
-        showError('Erro ao gerar relatório PDF: ' + error.message);
-    } finally {
-        // Clean up: remove the temporary div
-        document.body.removeChild(reportContentDiv);
-    }
-}
 
 
 /**
@@ -2321,13 +2292,12 @@ async function downloadReportPdf() {
  */
 function openEditSubEtapaModal(subEtapa) {
     document.getElementById("editSubEtapaId").value = subEtapa.id;
-    document.getElementById("editSubEtapaProjetoId").value = document.getElementById("subEtapasProjetoId").value; // Get from main modal
-    document.getElementById("editSubEtapaEtapaPrincipal").value = document.getElementById("subEtapasEtapaPrincipal").value; // Get from main modal
+    document.getElementById("editSubEtapaProjetoId").value = document.getElementById("subEtapasProjetoId").value;
+    document.getElementById("editSubEtapaEtapaPrincipal").value = document.getElementById("subEtapasEtapaPrincipal").value;
     document.getElementById("editSubEtapaDescricao").value = subEtapa.descricao;
-    
+
     const editSubEtapaDueDateInput = document.getElementById("editSubEtapaDueDate");
 
-    // Desabilitar o campo de data prevista para o perfil 'lider'
     if (['lider'].includes(currentUserRole)) {
         editSubEtapaDueDateInput.disabled = true;
         editSubEtapaDueDateInput.classList.add('disabled-field');
@@ -2335,18 +2305,15 @@ function openEditSubEtapaModal(subEtapa) {
         editSubEtapaDueDateInput.disabled = false;
         editSubEtapaDueDateInput.classList.remove('disabled-field');
     }
-    
-    // Formatar a data para input type="date" (YYYY-MM-DD)
-    let formattedDate = 
+
+    let formattedDate =
         subEtapa.data_prevista_conclusao ? subEtapa.data_prevista_conclusao.split("T")[0] : "";
     editSubEtapaDueDateInput.value = formattedDate;
-    
+
     const modal = document.getElementById("editSubEtapaModal");
     modal.style.display = "flex";
 
-    // Anexar o event listener de salvar
     const form = document.getElementById("editSubEtapaForm");
-    // Remover listener anterior se existir para evitar duplicação
     form.onsubmit = null;
     form.onsubmit = saveSubEtapaChanges;
 }
@@ -2369,11 +2336,9 @@ async function saveSubEtapaChanges(event) {
         return;
     }
 
-    // Se o usuário for 'lider', não permitir a alteração da dataPrevista
     if (['lider'].includes(currentUserRole)) {
-        // Re-fetch original sub-etapa data to ensure this field is not overwritten
         try {
-            const originalSubEtapaResponse = await fetch(`${API_BASE_URL}/sub-etapas/${subEtapaId}`); // Assumindo que você tem um endpoint /sub-etapas/:id
+            const originalSubEtapaResponse = await fetch(`${API_BASE_URL}/sub-etapas/${subEtapaId}`);
             if (originalSubEtapaResponse.ok) {
                 const originalSubEtapa = await originalSubEtapaResponse.json();
                 dataPrevista = originalSubEtapa.data_prevista_conclusao ? originalSubEtapa.data_prevista_conclusao.split("T")[0] : '';
@@ -2391,7 +2356,7 @@ async function saveSubEtapaChanges(event) {
             },
             body: JSON.stringify({
                 descricao: descricao,
-                data_prevista_conclusao: dataPrevista || null, // Envia null se vazio
+                data_prevista_conclusao: dataPrevista || null,
             }),
         });
 
@@ -2404,7 +2369,6 @@ async function saveSubEtapaChanges(event) {
         showToast(result.message, "success");
         closeModal("editSubEtapaModal");
 
-        // Reabrir o modal principal para atualizar a lista
         openSubEtapasModal(projetoId, etapaPrincipal);
 
     } catch (error) {

@@ -1041,12 +1041,6 @@ body {
     background-color: #1e6b3e;
 }
 
-.btn-download.pdf {
-    background-color: #f40f02; /* PDF red */
-}
-.btn-download.pdf:hover {
-    background-color: #d00c01;
-}
 
 .btn-download.print {
     background-color: var(--info-color);
