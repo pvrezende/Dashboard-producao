@@ -1,608 +1,1661 @@
-/* styles.css - Versão Atualizada para Tela Fullscreen */
+/* styles.css - Refatorado para o design da imagem e unificando todas as telas */
 
 :root {
-    --main-bg-color: #eaeaea;
-    --card-bg-color: #ffffff;
-    --card-item-bg-color: #ffffff;
-    --text-color: #333333;
-    --text-muted-color: #888888;
-    --primary-color: #66b2ff;
-    --primary-hover-color: #3386cc;
-    --divider-color: #ddd;
-    --icon-estimated-color: #ffb84d;
-    --icon-produced-color: #4dabf7;
-    --icon-approved-color: #66bb6a;
-    --icon-rejected-color: #f77c7c;
-    --oee-produtividade-color: #ba68c8;
-    --oee-qualidade-color: #4db6ac;
-    --modal-overlay: rgba(0, 0, 0, 0.5);
-}
+    /* Cores ajustadas para a paleta da imagem */
+    --main-bg-color: #f8f9fa; /* Fundo bem claro */
+    --card-bg-color: #ffffff; /* Fundo branco para cards */
+    --text-color: #343a40; /* Texto escuro padrão */
+    --text-muted-color: #6c757d; /* Texto cinza mais suave */
+    --primary-color: #007bff; /* Azul vibrante para destaque */
+    --primary-hover-color: #0056b3;
+    --secondary-color: #6c757d; /* Cinza para elementos secundários */
+    --secondary-hover-color: #5a6268;
+    --success-color: #28a745; /* Verde para sucesso */
+    --success-hover-color: #218838;
+    --danger-color: #dc3545; /* Vermelho para perigo/rejeição */
+    --danger-hover-color: #c82333;
+    --info-color: #17a2b8; /* Azul claro para informação (para botões de detalhes, etc) */
+    --info-hover-color: #138496;
+    --warning-color: #ffc107; /* Amarelo para atenção */
+    --warning-hover-color: #e0a800;
+    --divider-color: #e9ecef; /* Linhas divisórias claras */
+    --border-radius: 8px;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 
-/* Reset de estilos padrão */
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+    /* Cores para ícones de KPI, se diferentes das cores primárias */
+    --kpi-icon-blue: #007bff;
+    --kpi-icon-green: #28a745;
+    --kpi-icon-red: #dc3545;
+    --kpi-icon-purple: #6f42c1; /* Exemplo de cor para ícone de meta */
 
-html, body {
-    height: 100%;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: var(--main-bg-color);
-    color: var(--text-color);
-    overflow: hidden;
+    /* Cores para o Stepper */
+    --stepper-completed-color: var(--success-color);
+    --stepper-active-color: var(--primary-color);
+    --stepper-inactive-color: var(--text-muted-color);
+    --stepper-line-color: var(--divider-color);
+    --stepper-delayed-color: var(--danger-color);
 }
 
 body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--main-bg-color);
+    color: var(--text-color);
     display: flex;
     flex-direction: column;
-}
-
-/* Estilos do Dashboard */
-.dashboard {
-    flex: 1;
-    max-width: 100%;
-    background-color: var(--card-bg-color);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    padding: 25px;
-    overflow-y: auto;
+    min-height: 100vh;
     height: 100vh;
+    overflow: hidden;
 }
 
-/* Estilos do Header */
-.header {
-    text-align: center;
-    margin-bottom: 25px;
-    padding-bottom: 15px;
+/* Navegação entre telas */
+.screen-selector {
+    display: flex;
+    justify-content: center;
+    padding: 15px 20px;
+    background-color: var(--card-bg-color);
     border-bottom: 1px solid var(--divider-color);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    box-shadow: var(--box-shadow);
+    gap: 10px; /* Espaçamento entre os botões */
+    flex-wrap: wrap; /* Permite que os botões quebrem a linha em telas menores */
+    z-index: 10;
 }
 
-.header h1 {
-    color: var(--primary-color);
-    margin: 0;
-    font-size: 24px;
-    font-weight: 600;
-    flex: 1 1 100%;
-}
-
-.current-date-time {
-    color: var(--primary-color);
-    font-size: 16px;
-    font-weight: 600;
-    margin: 8px 0;
-    flex: 1 1 100%;
-}
-
-/* Estilos dos Botões de Ação */
-.action-buttons-container {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 10px;
-}
-
-.action-buttons-container button,
-.action-buttons-container .report-trigger button {
-    background-color: var(--primary-color);
+.screen-selector button {
+    background-color: var(--secondary-color);
+    color: white;
     border: none;
     padding: 10px 20px;
-    border-radius: 6px;
-    color: white;
-    font-weight: bold;
+    border-radius: var(--border-radius);
     cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s ease;
+    font-size: 1em;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Espaço entre ícone e texto */
 }
 
-.action-buttons-container button:hover,
-.action-buttons-container .report-trigger button:hover {
+.screen-selector button:hover {
+    background-color: var(--secondary-hover-color);
+    transform: translateY(-2px);
+}
+
+.screen-selector button.active {
+    background-color: var(--primary-color);
+    transform: none; /* Remove o translateY se estiver ativo */
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+.screen-selector button.active:hover {
     background-color: var(--primary-hover-color);
 }
 
-/* Estilos do Filtro de Data */
+/* Estilo geral para telas - Full screen */
+.tela {
+    display: none;
+    flex-grow: 1;
+    padding: 20px;
+    width: 100%;
+    height: calc(100vh - 70px); /* Altura total menos a altura do seletor de telas */
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.tela.active {
+    display: block;
+}
+
+/* Centralizing dashboards/forms within full screen */
+.dashboard, .dashboard-content, .form-container {
+    max-width: 100%;
+    width: 100%;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: var(--card-bg-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* --- Dashboard (Tela 1) --- */
+.dashboard .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--divider-color);
+}
+
+.dashboard .header h1 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.8em;
+    flex-grow: 1;
+    min-width: 250px;
+}
+
+.dashboard .current-date-time {
+    font-size: 1.1em;
+    color: var(--text-muted-color);
+    white-space: nowrap;
+}
+
+.action-buttons-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-left: auto; /* Push buttons to the right */
+}
+
 .date-filter {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 8px;
 }
 
 .date-filter label {
-    color: var(--text-muted-color);
-    font-size: 14px;
-}
-
-.date-filter input[type="date"] {
-    padding: 8px;
-    border: 1px solid var(--divider-color);
-    border-radius: 4px;
-    background-color: var(--card-bg-color);
+    font-weight: bold;
     color: var(--text-color);
-    font-size: 14px;
 }
 
-.date-filter button {
-    background-color: var(--primary-color);
+.date-input {
+    padding: 8px 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.date-input:focus {
+    border-color: var(--primary-color);
+}
+
+.action-button {
+    padding: 10px 15px;
     border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    color: white;
+    border-radius: var(--border-radius);
     cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s ease;
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-.date-filter button:hover {
+.action-button.primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.action-button.primary:hover {
     background-color: var(--primary-hover-color);
+    transform: translateY(-2px);
 }
 
-/* Estilos da Grade de Indicadores */
+.action-button.secondary {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.action-button.secondary:hover {
+    background-color: var(--secondary-hover-color);
+    transform: translateY(-2px);
+}
+
+.action-button.info {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.action-button.info:hover {
+    background-color: var(--info-hover-color);
+    transform: translateY(-2px);
+}
+
+.action-button.danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.action-button.danger:hover {
+    background-color: var(--danger-hover-color);
+    transform: translateY(-2px);
+}
+
 .indicators-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
-    margin-bottom: 25px;
-    align-items: stretch;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
 }
 
 .indicator-card {
+    background-color: white;
+    border-radius: var(--border-radius);
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--card-item-bg-color);
-    border-radius: 6px;
-    padding: 25px;
-    text-align: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    min-height: 180px;
-    min-width: 200px;
-    transition: transform 0.2s ease-in-out;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    height: 140px;
+    border-left: 4px solid transparent;
 }
 
-.indicator-card:hover {
+/* Cores específicas para cada tipo de card */
+.meta-card {
+    border-left-color: #ffc107; /* Amarelo */
+}
+
+.produced-card {
+    border-left-color: #17a2b8; /* Azul */
+}
+
+.approved-card {
+    border-left-color: #28a745; /* Verde */
+}
+
+.approved-percent-card {
+    border-left-color: #28a745; /* Verde */
+}
+
+.rejected-card {
+    border-left-color: #dc3545; /* Vermelho */
+}
+
+.rejected-percent-card {
+    border-left-color: #dc3545; /* Vermelho */
+}
+
+.card-icon {
+    width: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.8em;
+    padding: 0 10px;
+}
+
+.meta-card .card-icon {
+    color: #ffc107;
+}
+
+.produced-card .card-icon {
+    color: #17a2b8;
+}
+
+.approved-card .card-icon,
+.approved-percent-card .card-icon {
+    color: #28a745;
+}
+
+.rejected-card .card-icon,
+.rejected-percent-card .card-icon {
+    color: #dc3545;
+}
+
+.card-content {
+    flex: 1;
+    padding: 15px 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-title {
+    font-size: 0.85em;
+    color: var(--text-muted-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.card-values {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.card-box-value {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--text-color);
+    background-color: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.card-box-value .unit {
+    font-size: 0.8em;
+    font-weight: normal;
+    color: var(--text-muted-color);
+}
+
+.card-total-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+
+
+.oee-section {
+    background-color: var(--main-bg-color);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
+.oee-section .section-title {
+    text-align: center;
+    color: var(--text-color);
+    margin-bottom: 20px;
+    font-size: 1.5em;
+}
+
+.chart-container {
+    position: relative;
+    height: 350px;
+    width: 100%;
+    margin: auto;
+}
+
+/* --- Tela 2 (Status do Projeto) --- */
+.project-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--divider-color);
+}
+
+.project-list-header h2 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.8em;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+#refreshProjects {
+    background-color: var(--info-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#refreshProjects:hover {
+    background-color: var(--info-hover-color);
+    transform: translateY(-2px);
+}
+
+/* Grid layout for project cards */
+.projects-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.project-card {
+    display: grid;
+    /* Define grid columns: Project Info (flexible), Stepper (larger), Actions (fixed size) */
+    grid-template-columns: 1.5fr 3fr 120px; /* Adjust 120px for button column width */
+    gap: 20px;
+    align-items: center; /* Vertically align content in the grid row */
+    background-color: var(--card-bg-color);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    transition: transform 0.2s ease;
+    border-left: 4px solid var(--primary-color);
+}
+
+.project-card:hover {
     transform: translateY(-3px);
 }
 
-.indicator-card:nth-child(1) {
-    border-left: 4px solid var(--icon-estimated-color);
-}
-
-.indicator-card:nth-child(2) {
-    border-left: 4px solid var(--icon-produced-color);
-}
-
-.indicator-card:nth-child(3) {
-    border-left: 4px solid var(--icon-approved-color);
-}
-
-.indicator-card:nth-child(4) {
-    border-left: 4px solid var(--icon-approved-color);
-}
-
-.indicator-card:nth-child(5) {
-    border-left: 4px solid var(--icon-rejected-color);
-}
-
-.indicator-card:nth-child(6) {
-    border-left: 4px solid var(--icon-rejected-color);
-}
-
-.indicator-icon {
-    font-size: 28px;
-    margin-bottom: 10px;
-    transition: transform 0.3s ease;
-}
-
-.indicator-card:nth-child(1) .indicator-icon i {
-    color: var(--icon-estimated-color);
-}
-
-.indicator-card:nth-child(2) .indicator-icon i {
-    color: var(--icon-produced-color);
-}
-
-.indicator-card:nth-child(3) .indicator-icon i {
-    color: var(--icon-approved-color);
-}
-
-.indicator-card:nth-child(4) .indicator-icon i {
-    color: var(--icon-approved-color);
-}
-
-.indicator-card:nth-child(5) .indicator-icon i {
-    color: var(--icon-rejected-color);
-}
-
-.indicator-card:nth-child(6) .indicator-icon i {
-    color: var(--icon-rejected-color);
-}
-
-.indicator-card:hover .indicator-icon i {
-    transform: scale(1.1);
-}
-
-.indicator-title {
-    font-weight: 600;
-    color: var(--primary-color);
-    margin-bottom: 8px;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.indicator-value {
-    font-size: 22px;
-    font-weight: bold;
-    color: var(--text-color);
-    margin-bottom: 5px;
-    word-wrap: break-word;
-}
-
-.indicator-subtitle {
-    font-size: 12px;
-    color: var(--text-muted-color);
-}
-
-.indicator-value-split {
+/* Project Info Section */
+.project-info {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
+    flex-direction: column;
+    text-align: left;
+}
+
+.project-info-name {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--primary-color);
     margin-bottom: 5px;
 }
 
-.value-box {
-    background-color: var(--primary-color);
-    border-radius: 4px;
-    padding: 4px 8px;
-    color: white;
-    font-weight: bold;
-    font-size: 16px;
-    text-align: center;
-    min-width: 50px;
-    line-height: 1.2;
-}
-
-.value-box.units {
-    background-color: var(--card-item-bg-color);
-    border: 1px solid var(--divider-color);
+.project-info-details {
+    font-size: 1.0em;
     color: var(--text-color);
+    line-height: 1.4;
+}
+
+/* Stepper (Progress Bar) Section */
+.project-stepper-wrapper {
+    display: flex;
+    flex-direction: column; /* Allow text to be below the stepper */
+    align-items: center;
+    gap: 10px;
+}
+
+.stepper-text {
     font-weight: bold;
-    font-size: 22px;
-}
-
-/* Estilos do Separador */
-.divider {
-    border: none;
-    border-top: 1px solid var(--divider-color);
-    margin: 30px 0;
-}
-
-/* Estilos da Seção do Gráfico OEE */
-.oee-section {
-    margin-bottom: 25px;
-}
-
-.oee-chart-container {
-    background-color: var(--card-item-bg-color);
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.section-title {
-    font-weight: 600;
-    color: var(--primary-color);
-    margin-bottom: 15px;
-    font-size: 16px;
-    text-transform: uppercase;
+    color: var(--text-color);
     text-align: center;
-    letter-spacing: 1px;
+    font-size: 1em;
+    margin-bottom: 5px; /* Space between text and progress bar */
 }
 
-.oee-chart-container .chart-container {
-    height: 400px;
+.stepper-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     position: relative;
+    width: 90%; /* Ajuste conforme necessário */
+    max-width: 600px; /* Largura máxima para o stepper */
+    margin: 20px auto;
+    padding: 20px 0; /* Aumentado para dar espaço à linha e aos números */
 }
-
-canvas {
-    display: block;
-    width: 100% !important;
-    height: 100% !important;
-}
-
-/* Estilos do Botão "Ver Detalhes" (Se necessário) */
-.view-details-button {
-    background-color: var(--primary-color);
-    border: none;
-    padding: 12px 24px;
-    border-radius: 6px;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
-    margin-top: 15px;
-}
-
-.view-details-button:hover {
-    background-color: var(--primary-hover-color);
-}
-
-/* Estilos das Animações e Estados */
-.refresh-button:active {
-    transform: scale(0.95);
-}
-
-.refresh-button.updating {
-    background-color: var(--primary-hover-color);
-}
-
-.refresh-button.updating i {
-    animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-.fa-spin {
-    animation: spin 1s linear infinite;
-}
-
-.refresh-button:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-}
-
-/* Estilos do Modal */
-.modal {
-    display: none; /* oculto por padrão */
-    position: fixed;
-    z-index: 1000;
+/* linhas de evolução
+.stepper-container::before { 
+    content: '';
+    position: absolute;
+    top: 50%; 
     left: 0;
-    top: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.4); /* escurece */
-    backdrop-filter: blur(5px);          /* embaça */
-    justify-content: center;
-    align-items: center;
-    animation: fadeIn 0.3s;
-  }
-  
-  .modal.show {
-    display: flex; /* visível e centralizado */
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  .modal-content {
-    background-color: var(--card-item-bg-color);
-    width: 90%;
-    max-width: 900px;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    animation: slideDown 0.3s ease-out;
-    height: 80vh; /* Altura fixa para ocupar mais espaço */
-    display: flex;
-    flex-direction: column;
-  }
-  
-  @keyframes slideDown {
-    from {
-      transform: translateY(-20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-.modal-header {
-    display: flex;
-    justify-content: center; /* Centraliza o título */
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--divider-color);
-    text-align: center; /* Garante centralização do texto */
-}
-
-.modal-header h2 {
-    color: var(--primary-color);
-    margin: 0;
-    font-size: 28px; /* Aumenta o tamanho da fonte */
-    font-weight: bold;
-}
-
-.close-modal {
-    color: var(--text-muted-color);
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: color 0.3s;
-}
-
-.close-modal:hover,
-.close-modal:focus {
-    color: var(--primary-hover-color);
-    text-decoration: none;
-}
-
-.modal-body {
-    padding: 10px 0;
-    flex-grow: 1; /* Ocupa todo espaço disponível */
-    display: flex;
-    flex-direction: column;
-}
-
-/* Estilos do Filtro de Relatório */
-.report-filter {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-bottom: 20px;
     width: 100%;
+    height: 4px; 
+    background-color: var(--text-muted-color); 
+    transform: translateY(-50%);
+    z-index: 1; 
+    border-radius: 2px;
 }
 
-.date-inputs {
+.stepper-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 4px;
+    background-color: var(--stepper-completed-color); 
+    width: calc(var(--progress-width, 0%) - 1%); 
+    transform: translateY(-50%);
+    z-index: 1; 
+    border-radius: 2px;
+} */
+
+.step {
+    position: relative;
+    width: 36px; /* Increased size */
+    height: 36px; /* Increased size */
+    border-radius: 50%;
+    background-color: var(--card-bg-color);
+    color: var(--text-color);
     display: flex;
-    gap: 15px;
     justify-content: center;
     align-items: center;
+    font-size: 1em; /* Increased font size */
+    font-weight: bold;
+    border: 2px solid var(--stepper-inactive-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    z-index: 2; /* Ensure steps are above the line */
+    flex-shrink: 0; /* Prevent steps from shrinking */
+}
+
+.step.completed {
+    background-color: var(--stepper-completed-color);
+    border-color: var(--stepper-completed-color);
+    color: white;
+}
+
+.step.active {
+    background-color: var(--stepper-active-color);
+    border-color: var(--stepper-active-color);
+    color: white;
+    transform: scale(1.1); /* Slightly larger for active step */
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.4);
+}
+
+.step.delayed {
+    background-color: var(--stepper-delayed-color);
+    border-color: var(--stepper-delayed-color);
+    color: white;
+}
+
+.step-label {
+    position: absolute;
+    top: calc(100% + 5px); /* Position label below the step */
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap; /* Prevent text wrapping */
+    font-size: 0.75em;
+    color: var(--text-muted-color);
+    text-align: center;
+}
+
+.step-date {
+    position: absolute;
+    bottom: calc(100% + 5px); /* Position date above the step */
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap; /* Prevent text wrapping */
+    font-size: 0.7em;
+    color: var(--text-muted-color);
+    text-align: center;
+}
+
+.step.completed .step-label {
+    color: var(--success-color); /* Completed labels can be green */
+}
+
+.step.active .step-label {
+    color: var(--primary-color); /* Active labels can be blue */
+    font-weight: bold;
+}
+
+.step.delayed .step-label {
+    color: var(--danger-color); /* Delayed labels can be red */
+}
+
+/* Project Actions Section */
+.project-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end; /* Align buttons to the right */
+}
+
+.project-actions button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* Align text/icon to start of button */
+    gap: 5px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    width: 100%; /* Make buttons fill the allocated column width */
+    min-width: 90px; /* Ensure a minimum width */
+}
+
+.project-actions button.view-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+.project-actions button.view-btn:hover {
+    background-color: var(--primary-hover-color);
+    transform: translateY(-2px);
+}
+
+.project-actions button.edit-btn {
+    background-color: var(--info-color); /* Changed to info for edit */
+    color: white;
+}
+.project-actions button.edit-btn:hover {
+    background-color: var(--info-hover-color);
+    transform: translateY(-2px);
+}
+
+.project-actions button.delete-btn {
+    background-color: var(--danger-color);
+    color: white;
+}
+.project-actions button.delete-btn:hover {
+    background-color: var(--danger-hover-color);
+    transform: translateY(-2px);
+}
+
+/* --- Tela 3 (Cadastro de Projetos) --- */
+.form-container h1 {
+    text-align: center;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    font-size: 2em;
+}
+
+.form-container form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-section {
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    border-left: 4px solid var(--primary-color);
+}
+
+.form-section h3 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--divider-color);
+    padding-bottom: 10px;
+    font-size: 1.3em;
+}
+
+.form-info {
+    color: var(--text-muted-color);
+    font-size: 0.9em;
+    margin-bottom: 15px;
+    background-color: rgba(0, 123, 255, 0.05);
+    padding: 10px;
+    border-radius: var(--border-radius);
+    border-left: 3px solid var(--info-color);
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
     flex-wrap: wrap;
 }
 
-.date-input-group {
+.form-group {
+    flex: 1;
+    min-width: 250px;
+}
+
+.form-group.flex-grow {
+    flex: 2;
+}
+
+.form-container label {
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 5px;
+    display: block;
+}
+
+.form-container input[type="text"],
+.form-container input[type="number"],
+.form-container input[type="password"],
+.form-container input[type="date"],
+.form-container input[type="datetime-local"],
+.form-container select {
+    padding: 10px 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    outline: none;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-container input:focus,
+.form-container select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+}
+
+.etapas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.etapa-item {
+    background-color: white;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-left: 3px solid var(--info-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.etapa-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.etapa-item h4 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1em;
+    border-bottom: 1px solid var(--divider-color);
+    padding-bottom: 8px;
+}
+
+.submit-button {
+    background-color: var(--success-color);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1.1em;
+    margin-top: 10px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
 }
 
-.report-filter label {
-    font-weight: 600;
-    color: var(--text-muted-color);
-    font-size: 18px; /* Aumenta o tamanho da fonte */
+.submit-button:hover {
+    background-color: var(--success-hover-color);
+    transform: translateY(-2px);
 }
 
-.report-filter input[type="date"] {
+.submit-button:before {
+    content: '\f0c7'; /* Ícone de salvar do FontAwesome */
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+}
+
+#statusMsg {
+    text-align: center;
     padding: 10px;
-    border: 1px solid var(--divider-color);
-    border-radius: 4px;
-    font-size: 16px; /* Aumenta o tamanho da fonte */
-}
-
-.report-filter button {
-    background-color: var(--primary-color);
-    border: none;
-    padding: 10px 20px;
-    border-radius: 4px;
-    color: white;
+    border-radius: var(--border-radius);
+    margin-top: 15px;
     font-weight: bold;
-    cursor: pointer;
-    font-size: 16px; /* Aumenta o tamanho da fonte */
-    transition: background-color 0.3s;
+    display: none;
 }
 
-.report-filter button:hover {
-    background-color: var(--primary-hover-color);
+#statusMsg.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
 }
 
-.report-result {
-    font-size: 20px; /* Aumenta o tamanho da fonte */
+#statusMsg.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    overflow-y: auto;
     padding: 20px;
-    border: 1px solid var(--divider-color);
-    border-radius: 4px;
-    background-color: #f9f9f9;
-    flex-grow: 1; /* Ocupa todo espaço disponível */
+    box-sizing: border-box;
+}
+
+.modal-content {
+    background-color: white; /* Cor de fundo branca */
+    border-radius: var(--border-radius); /* Bordas arredondadas */
+    padding: 25px; /* Espaçamento interno */
+    width: 100%; /* Largura total */
+    max-width: 800px; /* Largura máxima */
+    max-height: 90vh; /* Altura máxima */
+    overflow-y: auto; /* Permitir rolagem vertical se necessário */
+    position: relative; /* Para posicionamento de elementos internos */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Sombra para dar profundidade */
+    transition: transform 0.3s ease; /* Transição suave para transformações */
+}
+
+/* Efeito de zoom ao abrir a modal */
+.modal-content.show {
+    transform: scale(1.05); /* Aumenta ligeiramente o tamanho */
+}
+
+.close-modal, .close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-muted-color);
+    transition: color 0.3s ease;
+}
+
+.close-modal:hover, .close:hover {
+    color: var(--danger-color);
+}
+
+.modal h2 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--divider-color);
+    padding-bottom: 10px;
+}
+
+.modal form {
     display: flex;
     flex-direction: column;
-    justify-content: center; /* Centraliza verticalmente */
-    align-items: center; /* Centraliza horizontalmente */
-    text-align: center; /* Centraliza o texto */
-    line-height: 1.6; /* Melhora a legibilidade */
-}
-
-.report-result strong {
-    color: var(--primary-color);
-    font-size: 22px; /* Tamanho maior para os strong */
-}
-
-/* Media Queries para Responsividade */
-@media (max-width: 768px) {
-    .indicators-grid {
-        gap: 10px;
-    }
-
-    .indicator-card {
-        min-height: 100px;
-    }
-
-    .oee-chart-container .chart-container {
-        height: 250px;
-    }
-
-    .header {
-        flex-direction: column;
-        align-items: center;
-    }
-
-    .action-buttons-container,
-    .date-filter {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .date-input-group {
-        width: 100%;
-    }
-
-    .modal-content {
-        width: 95%;
-        margin: 10% auto;
-    }
-
-    .report-filter {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .report-actions {
-        flex-direction: column;
-    }
-
-    .report-actions button {
-        width: 100%;
-        justify-content: center;
-    }
-}
-
-
-
-.report-actions {
-    display: flex;
     gap: 15px;
-    justify-content: center;
 }
 
-.report-actions button {
+.modal label {
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 5px;
+    display: block;
+}
+
+.modal input[type="text"],
+.modal input[type="number"],
+.modal input[type="password"],
+.modal input[type="date"],
+.modal input[type="datetime-local"],
+.modal select {
+    padding: 10px 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    outline: none;
+    transition: border-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.modal input:focus,
+.modal select:focus {
+    border-color: var(--primary-color);
+}
+
+.modal button[type="submit"] {
     background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    margin-top: 10px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.modal button[type="submit"]:hover {
+    background-color: var(--primary-hover-color);
+    transform: translateY(-2px);
+}
+
+/* Estilos para o modal de relatório */
+#reportModal .modal-content {
+    max-width: 900px;
+}
+
+.date-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+#reportResult {
+    margin-top: 20px;
+}
+
+.report-summary {
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.report-summary h3 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.3em;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.summary-item {
+    background-color: white;
+    padding: 10px 15px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.summary-label {
+    font-weight: bold;
+    color: var(--text-muted-color);
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.summary-value {
+    font-size: 1.1em;
+    color: var(--text-color);
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.report-table thead {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.report-table th, 
+.report-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--divider-color);
+}
+
+.report-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.report-table tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.report-table tfoot {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+.download-options {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.download-options h3 {
+    color: var(--text-color);
+    margin-bottom: 15px;
+}
+
+.download-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.btn-download {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+}
+
+.btn-download:hover {
+    transform: translateY(-2px);
+}
+
+.btn-download.txt {
+    background-color: var(--secondary-color);
+}
+.btn-download.txt:hover {
+    background-color: var(--secondary-hover-color);
+}
+
+.btn-download.excel {
+    background-color: #217346; /* Excel green */
+}
+.btn-download.excel:hover {
+    background-color: #1e6b3e;
+}
+
+.btn-download.pdf {
+    background-color: #f40f02; /* PDF red */
+}
+.btn-download.pdf:hover {
+    background-color: #d00c01;
+}
+
+.btn-download.print {
+    background-color: var(--info-color);
+}
+.btn-download.print:hover {
+    background-color: var(--info-hover-color);
+}
+
+/* Estilos para o modal de edição de projeto */
+#editProjectModal .modal-content {
+    max-width: 900px;
+}
+
+#editProjectForm .form-section {
+    margin-bottom: 20px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .dashboard .header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .action-buttons-container {
+        margin-left: 0;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .indicators-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .project-card {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .project-actions {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    
+    .project-actions button {
+        width: auto;
+    }
+    
+    .date-filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.sub-etapa-item.sub-etapa-atrasada {
+    border-left: 3px solid var(--danger-color);
+    background-color: rgba(220, 53, 69, 0.05); /* Light red background */
+}
+
+.sub-etapa-item.sub-etapa-atrasada .sub-etapa-descricao {
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+
+
+
+/* Estilos para status das sub-etapas individuais */
+.sub-etapa-item.sub-etapa-atrasada {
+    background-color: rgba(220, 53, 69, 0.1); /* Fundo vermelho claro */
+    border-left: 4px solid var(--danger-color);
+}
+
+.sub-etapa-item.sub-etapa-em-andamento {
+    background-color: rgba(0, 123, 255, 0.05); /* Fundo azul claro */
+    border-left: 4px solid var(--primary-color);
+}
+
+.sub-etapa-item.sub-etapa-concluida-visual {
+    background-color: rgba(40, 167, 69, 0.1); /* Fundo verde claro */
+    border-left: 4px solid var(--success-color);
+}
+
+.sub-etapa-item.sub-etapa-concluida-visual .sub-etapa-descricao {
+    color: var(--text-muted-color);
+}
+
+/* Indicador visual de atualização */
+.refresh-indicator {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(0, 123, 255, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+}
+
+/* Botão parar atualização */
+#stopRefreshButton {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+/* Wrapper para todas as notificações */
+#notification-wrapper {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Espaço entre as notificações */
+    max-width: 90%; /* Para responsividade */
+}
+
+/* Estilo base para cada mensagem de notificação */
+.notification-message {
+    padding: 15px;
+    border-radius: var(--border-radius); /* Usando sua variável */
+    box-shadow: var(--box-shadow); /* Usando sua variável */
+    color: white;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+    transform: translateX(100%); /* Começa fora da tela para animação de entrada */
+    min-width: 250px; /* Largura mínima para ser legível */
+}
+
+/* Estado visível da notificação */
+.notification-message.show {
+    opacity: 1;
+    transform: translateX(0); /* Desliza para dentro */
+}
+
+/* Cores por tipo de notificação */
+.notification-message.success {
+    background-color: var(--success-color); /* Usando sua variável */
+}
+
+.notification-message.error {
+    background-color: var(--danger-color); /* Usando sua variável */
+}
+
+.notification-message.info {
+    background-color: var(--info-color); /* Você já tem esta variável */
+}
+
+.notification-message.warning {
+    background-color: var(--warning-color); /* Você já tem esta variável */
+    color: var(--text-color); /* Mudar a cor do texto para contraste com amarelo */
+}
+
+/* Etapas tela 3 */
+.etapas-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.etapa-item {
+  background-color: var(--card-bg-color);
+  padding: 15px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+input[type="datetime-local"],
+input[type="text"],
+select {
+  padding: 10px;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--border-radius);
+  font-size: 1em;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/*Botão gerar relatório*/
+.button-relatorio {
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+    border: 2px solid #007BFF;
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 20px;
+    transition: background 0.3s, transform 0.2s;
+}
+.button-relatorio:hover {
+    background: #007BFF;
+    cursor: pointer;
+    transform: scale(1.05);
+}
+.button-relatorio:active {
+    opacity: 0.8;
+}
+
+/*Estilos para login*/
+/* ... existing styles ... */
+
+/* Modal Styles - ensure these handle the new login modal as well */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    overflow-y: auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.modal.active { /* Added for the initial display of login modal */
+    display: flex;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: var(--border-radius);
+    padding: 25px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+}
+
+.modal-content.small { /* For smaller modals like login/edit sub-etapa */
+    max-width: 450px;
+}
+
+.modal-content.show {
+    transform: scale(1.05);
+}
+
+.close-modal, .close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-muted-color);
+    transition: color 0.3s ease;
+}
+
+.close-modal:hover, .close:hover {
+    color: var(--danger-color);
+}
+
+.modal h2 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--divider-color);
+    padding-bottom: 10px;
+}
+
+.modal form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.modal label {
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 5px;
+    display: block;
+}
+
+.modal input[type="text"],
+.modal input[type="number"],
+.modal input[type="password"],
+.modal input[type="date"],
+.modal input[type="datetime-local"],
+.modal select {
+    padding: 10px 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    outline: none;
+    transition: border-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.modal input:focus,
+.modal select:focus {
+    border-color: var(--primary-color);
+}
+
+.modal button[type="submit"] {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    margin-top: 10px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.modal button[type="submit"]:hover {
+    background-color: var(--primary-hover-color);
+    transform: translateY(-2px);
+}
+
+/* Status message for login form */
+.status-message {
+    text-align: center;
+    padding: 10px;
+    border-radius: var(--border-radius);
+    margin-top: 15px;
+    font-weight: bold;
+    display: block; /* Always visible for login feedback */
+}
+
+.status-message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Additions for logout button */
+#logoutButton {
+    background-color: #f44336; /* Red for logout */
+    color: white;
     border: none;
     padding: 10px 20px;
-    border-radius: 6px;
-    color: white;
-    font-weight: bold;
+    border-radius: var(--border-radius);
     cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
+    font-size: 1em;
+    transition: background-color 0.3s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.report-actions button:hover {
-    background-color: var(--primary-hover-color);
+#logoutButton:hover {
+    background-color: #d32f2f;
+    transform: translateY(-2px);
 }
 
-.download-btn {
-    background-color: #4CAF50 !important;
+/* NEW STYLES FOR PROJECT DETAILS MODAL */
+#projectDetailsModal .modal-content {
+    max-width: 700px; /* Adjust max-width for project details */
+    padding: 30px;
 }
 
-.download-btn:hover {
-    background-color: #3e8e41 !important;
+.project-details h3 {
+    text-align: center;
+    color: var(--primary-color);
+    margin-bottom: 25px;
+    font-size: 1.8em;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.details-section {
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid var(--info-color); /* A different border color */
+}
+
+.details-section h4 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1.2em;
+    border-bottom: 1px dashed var(--divider-color); /* Dashed line */
+    padding-bottom: 8px;
+}
+
+.details-section p {
+    margin: 8px 0;
+    font-size: 1em;
+    line-height: 1.5;
+}
+
+.details-section p strong {
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.details-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    font-size: 0.95em;
+}
+
+.details-table thead {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.details-table th,
+.details-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border: 1px solid var(--divider-color);
+}
+
+.details-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.details-table tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.status-completed {
+    color: var(--success-color);
+    font-weight: bold;
+}
+
+.status-active {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.status-delayed {
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+.status-pending {
+    color: var(--text-muted-color);
+    font-style: italic;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end; /* Align to the right */
+    margin-top: 25px;
+    gap: 10px;
+}
+
+/* For the close button specifically in modal-buttons */
+.modal-buttons .close-modal-btn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.modal-buttons .close-modal-btn:hover {
+    background-color: var(--secondary-hover-color);
+    transform: translateY(-2px);
+}
+
+/* Style for sub-etapa list in its modal */
+.sub-etapas-list {
+    margin-top: 20px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--border-radius);
+    padding: 15px;
+    background-color: #fefefe;
+    max-height: 300px; /* Fixed height for scrolling */
+    overflow-y: auto;
+}
+
+.sub-etapa-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--divider-color);
+    font-size: 1em;
+    color: var(--text-color);
+}
+
+.sub-etapa-item:last-child {
+    border-bottom: none;
+}
+
+.sub-etapa-descricao {
+    flex-grow: 1;
+    font-weight: 500;
+}
+
+.sub-etapa-due-date {
+    font-size: 0.85em;
+    color: var(--text-muted-color);
+    margin-left: 15px;
+    white-space: nowrap;
+}
+
+.sub-etapa-concluida {
+    color: var(--success-color);
+    font-weight: normal;
+    margin-left: 8px;
+    font-style: italic;
+}
+
+.sub-etapa-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 15px;
+}
+
+.sub-etapa-actions button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.85em;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background-color 0.2s ease;
+}
+
+.sub-etapa-actions button.edit-btn {
+    background-color: var(--info-color);
+    color: white;
+}
+.sub-etapa-actions button.edit-btn:hover {
+    background-color: var(--info-hover-color);
+}
+
+.sub-etapa-actions button.complete-btn {
+    background-color: var(--success-color);
+    color: white;
+}
+.sub-etapa-actions button.complete-btn:hover {
+    background-color: var(--success-hover-color);
+}
+
+.sub-etapa-actions button.uncomplete-btn {
+    background-color: var(--warning-color); /* Using warning for uncomplete */
+    color: var(--text-color);
+}
+.sub-etapa-actions button.uncomplete-btn:hover {
+    background-color: var(--warning-hover-color);
+}
+
+.sub-etapa-actions button.delete-btn {
+    background-color: var(--danger-color);
+    color: white;
+}
+.sub-etapa-actions button.delete-btn:hover {
+    background-color: var(--danger-hover-color);
+}
+
+.no-sub-etapas, .no-projects {
+    text-align: center;
+    color: var(--text-muted-color);
+    font-style: italic;
+    padding: 20px;
+}
+
+/* Edit sub-etapa modal */
+#editSubEtapaModal .modal-content {
+    max-width: 450px;
+}
+
+#editSubEtapaTitulo {
+    color: var(--primary-color);
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--divider-color);
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.disabled-field {
+    background-color: #e9ecef; /* Light grey background for disabled fields */
+    cursor: not-allowed;
+    color: #6c757d;
 }

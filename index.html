@@ -1,128 +1,638 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Produção</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
+
 <body>
-    <div class="dashboard">
-        <div class="header">
-            <h1>CONTROLE DE PRODUÇÃO</h1>
-            <div id="currentDateTime" class="current-date-time">--:--:--</div>
-            <div class="action-buttons-container">
-                <button class="refresh-button"><i class="fas fa-sync-alt"></i> Atualizar</button>
-                <div class="report-trigger">
-                    <button id="openReportPanel"><i class="fas fa-file-alt"></i> Relatório</button>
+    <div id="loginModal" class="modal active">
+        <div class="modal-content small">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Usuário:</label>
+                    <input type="text" id="username" required>
                 </div>
-            </div>
-            <div id="dateFilterContainer">
-                <div class="date-filter">
-                    <label for="datePicker">Selecionar Data:</label>
-                    <input type="date" id="datePicker" name="datePicker">
-                    <button id="applyDateFilter">Filtrar</button>
+                <div class="form-group">
+                    <label for="password">Senha:</label>
+                    <input type="password" id="password" required>
                 </div>
-            </div>
-        </div>
-
-        <div class="indicators-grid">
-            <div class="indicator-card">
-                <div class="indicator-icon"><i class="fas fa-boxes"></i></div>
-                <div class="indicator-title">Peças Estimadas</div>
-                <div class="indicator-value-split">
-                    <div class="value-box">-- cx</div>
-                    <div class="value-box units">--</div>
-                </div>
-                <div class="indicator-subtitle">Meta de produção</div>
-            </div>
-
-            <div class="indicator-card">
-                <div class="indicator-icon"><i class="fas fa-tools"></i></div>
-                <div class="indicator-title">Peças Produzidas</div>
-                <div class="indicator-value-split">
-                    <div class="value-box">-- cx</div>
-                    <div class="value-box units">--</div>
-                </div>
-                <div class="indicator-subtitle">Total produzido</div>
-            </div>
-
-            <div class="indicator-card">
-                <div class="indicator-icon"><i class="fas fa-check-circle"></i></div>
-                <div class="indicator-title">Total Aprovados</div>
-                <div class="indicator-value">--</div>
-                <div class="indicator-subtitle">Total de peças boas</div>
-            </div>
-
-            <div class="indicator-card">
-                <div class="indicator-icon"><i class="fas fa-percentage"></i></div>
-                <div class="indicator-title">% Aprovados</div>
-                <div class="indicator-value">--%</div>
-                <div class="indicator-subtitle"></div>
-            </div>
-
-            <div class="indicator-card">
-                <div class="indicator-icon"><i class="fas fa-times-circle"></i></div>
-                <div class="indicator-title">Total Reprovados</div>
-                <div class="indicator-value">--</div>
-                <div class="indicator-subtitle">Total de peças ruins</div>
-            </div>
-
-            <div class="indicator-card">
-                <div class="indicator-icon"><i class="fas fa-percentage"></i></div>
-                <div class="indicator-title">% Reprovados</div>
-                <div class="indicator-value">--%</div>
-                <div class="indicator-subtitle"></div>
-            </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="oee-section">
-            <div class="oee-chart-container">
-                <div class="section-title">Acompanhamento de Produção Hora a Hora</div>
-                <div class="chart-container">
-                    <canvas id="oeeChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="divider"></div>
-    </div>
-
-    <!-- Modal Report Panel -->
-<div id="reportModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Relatório de Produção</h2>
-            <span class="close-modal">&times;</span>
-        </div>
-        <div class="modal-body">
-            <div class="report-filter">
-                <div class="date-inputs">
-                    <div class="date-input-group">
-                        <label for="startDate">De:</label>
-                        <input type="date" id="startDate">
-                    </div>
-                    <div class="date-input-group">
-                        <label for="endDate">Até:</label>
-                        <input type="date" id="endDate">
-                    </div>
-                </div>
-                <div class="report-actions">
-                    <button id="generateReport"><i class="fas fa-search"></i> Gerar</button>
-                    <button id="downloadReport" class="download-btn"><i class="fas fa-download"></i> Baixar TXT</button>
-                </div>
-            </div>
-            <div id="reportResult" class="report-result"></div>
+                <button type="submit" class="action-button primary">Entrar</button>
+                <p id="loginMessage" class="status-message"></p>
+            </form>
         </div>
     </div>
-</div>
+    
+    <div id="appContent" style="display: none;">
+        <nav class="screen-selector">
+            <button onclick="switchScreen('tela1')" class="active">
+                📊 Dashboard
+            </button>
+            <button onclick="switchScreen('tela2')">
+                📌 Status do Projeto
+            </button>
+            <button onclick="switchScreen('tela3')">
+                📝 Cadastro de Projetos
+            </button>
+            <button id="logoutButton" class="action-button secondary">
+                <i class="fas fa-sign-out-alt"></i> Sair
+            </button>
+        </nav>
+
+        <div id="tela1" class="tela active">
+            <div class="dashboard">
+                <div class="header">
+                    <h1>CONTROLE DE PRODUÇÃO</h1>
+                    <div class="current-date-time" id="currentDateTime"></div>
+                    <div class="action-buttons-container">
+                        <div class="date-filter">
+                            <label for="selectedDate">Data:</label>
+                            <input type="date" id="selectedDate" class="date-input">
+                        </div>
+                        <button id="registerProductionBtn" class="action-button primary">
+                            <i class="fas fa-plus"></i> Registrar Produção
+                        </button>
+                        <button id="generateReportModalBtn" class="action-button info">
+                            <i class="fas fa-file-alt"></i> Gerar Relatório
+                        </button>
+                        <button id="toggleFullscreenDashboard" class="action-button secondary">
+                            <i class="fas fa-expand"></i> Tela Cheia
+                        </button>
+                    </div>
+                </div>
+
+                <div class="indicators-grid">
+                    <div class="indicator-card meta-card">
+                        <div class="card-icon">
+                            <i class="fas fa-boxes"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-title">PEÇAS ESTIMADAS</div>
+                            <div class="card-values">
+                                <div class="card-box-value"><span id="totalCaixasEstimadas">0</span> <span class="unit">cx</span></div>
+                                <div class="card-total-value"><span id="totalPecasEstimadas">0</span></div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <div class="indicator-card produced-card">
+                        <div class="card-icon">
+                            <i class="fas fa-box-open"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-title">PEÇAS PRODUZIDAS</div>
+                            <div class="card-values">
+                                <div class="card-box-value"><span id="totalCaixasProduzidas">0</span> <span class="unit">cx</span></div>
+                                <div class="card-total-value"><span id="totalPecasProduzidasValue">0</span></div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <div class="indicator-card approved-card">
+                        <div class="card-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-title">TOTAL APROVADOS</div>
+                            <div class="card-values">
+                                <div class="card-total-value"><span id="pecasAprovadasHoje">0</span></div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <div class="indicator-card approved-percent-card">
+                        <div class="card-icon">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-title">% APROVADOS</div>
+                            <div class="card-values">
+                                <div class="card-total-value"><span id="percentAprovados">0</span>%</div>
+                            </div>
+                            <div class="card-subtitle"></div>
+                        </div>
+                    </div>
+                    <div class="indicator-card rejected-card">
+                        <div class="card-icon">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-title">TOTAL REPROVADOS</div>
+                            <div class="card-values">
+                                <div class="card-total-value"><span id="totalReprovados">0</span></div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <div class="indicator-card rejected-percent-card">
+                        <div class="card-icon">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-title">% REPROVADOS</div>
+                            <div class="card-values">
+                                <div class="card-total-value"><span id="percentReprovados">0</span>%</div>
+                            </div>
+                            <div class="card-subtitle"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="oee-section">
+                    <h2 class="section-title">Produção Hora a Hora</h2>
+                    <div class="chart-container">
+                        <canvas id="productionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tela2" class="tela">
+            <div class="dashboard-content">
+                <div class="project-list-header">
+                    <h2>Projetos Ativos</h2>
+                    <div class="action-buttons">
+                        
+                        <button id="refreshProjects" class="action-button info">
+                            <i class="fas fa-sync-alt"></i> Atualizar Projetos
+                        </button>
+                    </div>
+                </div>
+                <div class="projects-container" id="projectsContainer">
+                </div>
+            </div>
+        </div>
+
+        <div id="tela3" class="tela">
+            <div class="form-container">
+                <h1>Cadastro de Novo Projeto</h1>
+                <form id="cadastroProjetoForm">
+                    <div class="form-section">
+                        <h3>Informações Básicas</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="projetoNome">Nome do Projeto:</label>
+                                <input type="text" id="projetoNome" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="projetoLider">Líder do Projeto:</label>
+                                <input type="text" id="projetoLider" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="projetoEquipe">Equipe (separar por vírgulas):</label>
+                                <input type="text" id="projetoEquipe" placeholder="Ex: João, Maria, Pedro">
+                            </div>
+                            <div class="form-group">
+                                <label for="projetoEtapa">Etapa Inicial:</label>
+                                <select id="projetoEtapa" required>
+                                    <option value="1">1 - Projeto</option>
+                                    <option value="2">2 - Compras</option>
+                                    <option value="3">3 - Usinagem</option>
+                                    <option value="4">4 - Montagem</option>
+                                    <option value="5">5 - Elétrica</option>
+                                    <option value="6">6 - Testes</option>
+                                    <option value="7">7 - Concluído</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="projetoDataInicio">Data de Início:</label>
+                                <input type="date" id="projetoDataInicio">
+                            </div>
+                            <div class="form-group">
+                                <label for="projetoDataFim">Data de Entrega:</label>
+                                <input type="date" id="projetoDataFim">
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3>Dates for Stages</h3>
+                        <p class="form-info">Define the start and end dates for each project stage. All dates are optional.</p>
+                        
+                        <div class="etapas-grid">
+                            <div class="etapa-item">
+                                <h4>Etapa 1 - Projeto</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="dataInicioEtapa1">Start Date:</label>
+                                        <input type="datetime-local" id="dataInicioEtapa1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dataFimEtapa1">End Date:</label>
+                                        <input type="datetime-local" id="dataFimEtapa1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 2 - Compras</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="dataInicioEtapa2">Start Date:</label>
+                                        <input type="datetime-local" id="dataInicioEtapa2">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dataFimEtapa2">End Date:</label>
+                                        <input type="datetime-local" id="dataFimEtapa2">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 3 - Usinagem</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="dataInicioEtapa3">Start Date:</label>
+                                        <input type="datetime-local" id="dataInicioEtapa3">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dataFimEtapa3">End Date:</label>
+                                        <input type="datetime-local" id="dataFimEtapa3">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 4 - Montagem</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="dataInicioEtapa4">Start Date:</label>
+                                        <input type="datetime-local" id="dataInicioEtapa4">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dataFimEtapa4">End Date:</label>
+                                        <input type="datetime-local" id="dataFimEtapa4">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 5 - Elétrica</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="dataInicioEtapa5">Start Date:</label>
+                                        <input type="datetime-local" id="dataInicioEtapa5">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dataFimEtapa5">End Date:</label>
+                                        <input type="datetime-local" id="dataFimEtapa5">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 6 - Testes</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="dataInicioEtapa6">Start Date:</label>
+                                        <input type="datetime-local" id="dataInicioEtapa6">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dataFimEtapa6">End Date:</label>
+                                        <input type="datetime-local" id="dataFimEtapa6">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 7 - Concluído</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="dataInicioEtapa7">Start Date:</label>
+                                        <input type="datetime-local" id="dataInicioEtapa7">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dataFimEtapa7">End Date:</label>
+                                        <input type="datetime-local" id="dataFimEtapa7">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-button">Cadastrar Projeto</button>
+                </form>
+                <div id="statusMsg"></div>
+            </div>
+        </div>
+
+        <div id="registerModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Registrar Produção</h2>
+                <form id="registerProductionForm">
+                    <label for="pecasEstimadasInput">Quantidade de Peças Estimadas:</label>
+                    <input type="number" id="pecasEstimadasInput" min="0">
+
+                    <label for="qtdDadosInput">Quantidade de Peças Produzidas:</label>
+                    <input type="number" id="qtdDadosInput" min="0">
+
+                    <label for="pecasReprovadaInput">Quantidade de Peças Reprovadas:</label>
+                    <input type="number" id="pecasReprovadaInput" min="0">
+
+                    <label for="dataHoraInput">Data e Hora (Automático):</label>
+                    <input type="datetime-local" id="dataHoraInput" required>
+
+                    <button type="submit">Registrar</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="reportModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Gerar Relatório de Produção</h2>
+                <div class="date-filter-group">
+                    <div class="date-filter">
+                        <label for="reportStartDate">De:</label>
+                        <input type="date" id="reportStartDate" class="date-input">
+                    </div>
+                    <div class="date-filter">
+                        <label for="reportEndDate">Até:</label>
+                        <input type="date" id="reportEndDate" class="date-input">
+                    </div>
+                    <button id="generateReportBtn" class="btn btn-primary">Gerar Relatório</button>
+                </div>
+                <div id="reportResult" style="display: none;"></div>
+                <div id="downloadOptions" style="display: none;" class="download-options">
+                    <h3>Baixar Relatório</h3>
+                    <div class="download-buttons">
+                        <button id="downloadTxt" class="btn btn-download txt">TXT</button>
+                        <button id="downloadExcel" class="btn btn-download excel">Excel</button>
+                        <button id="downloadPdf" class="btn btn-download pdf">PDF</button>
+                        <button id="printReport" class="btn btn-download print">Imprimir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="editProjectModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Editar Projeto</h2>
+                <form id="editProjectForm">
+                    <input type="hidden" id="editProjectId">
+                    
+                    <div class="form-section">
+                        <h3>Informações Básicas</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editProjetoNome">Nome do Projeto:</label>
+                                <input type="text" id="editProjetoNome" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editProjetoLider">Líder do Projeto:</label>
+                                <input type="text" id="editProjetoLider" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editProjetoEquipe">Equipe (separar por vírgulas):</label>
+                                <input type="text" id="editProjetoEquipe" placeholder="Ex: João, Maria, Pedro">
+                            </div>
+                            <div class="form-group">
+                                <label for="editProjetoEtapa">Etapa Atual:</label>
+                                <select id="editProjetoEtapa" required>
+                                    <option value="1">1 - Projeto</option>
+                                    <option value="2">2 - Compras</option>
+                                    <option value="3">3 - Usinagem</option>
+                                    <option value="4">4 - Montagem</option>
+                                    <option value="5">5 - Elétrica</option>
+                                    <option value="6">6 - Testes</option>
+                                    <option value="7">7 - Concluído</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editProjetoDataInicio">Data de Início:</label>
+                                <input type="date" id="editProjetoDataInicio">
+                            </div>
+                            <div class="form-group">
+                                <label for="editProjetoDataFim">Data de Entrega:</label>
+                                <input type="date" id="editProjetoDataFim">
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3>Dates for Stages</h3>
+                        <p class="form-info">Define the start and end dates for each project stage. All dates are optional.</p>
+                        
+                        <div class="etapas-grid">
+                            <div class="etapa-item">
+                                <h4>Etapa 1 - Projeto</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editDataInicioEtapa1">Start Date:</label>
+                                        <input type="datetime-local" id="editDataInicioEtapa1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editDataFimEtapa1">End Date:</label>
+                                        <input type="datetime-local" id="editDataFimEtapa1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 2 - Compras</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editDataInicioEtapa2">Start Date:</label>
+                                        <input type="datetime-local" id="editDataInicioEtapa2">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editDataFimEtapa2">End Date:</label>
+                                        <input type="datetime-local" id="editDataFimEtapa2">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 3 - Usinagem</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editDataInicioEtapa3">Start Date:</label>
+                                        <input type="datetime-local" id="editDataInicioEtapa3">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editDataFimEtapa3">End Date:</label>
+                                        <input type="datetime-local" id="editDataFimEtapa3">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 4 - Montagem</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editDataInicioEtapa4">Start Date:</label>
+                                        <input type="datetime-local" id="editDataInicioEtapa4">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editDataFimEtapa4">End Date:</label>
+                                        <input type="datetime-local" id="editDataFimEtapa4">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 5 - Elétrica</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editDataInicioEtapa5">Start Date:</label>
+                                        <input type="datetime-local" id="editDataInicioEtapa5">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editDataFimEtapa5">End Date:</label>
+                                        <input type="datetime-local" id="editDataFimEtapa5">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 6 - Testes</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editDataInicioEtapa6">Start Date:</label>
+                                        <input type="datetime-local" id="editDataInicioEtapa6">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editDataFimEtapa6">End Date:</label>
+                                        <input type="datetime-local" id="editDataFimEtapa6">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="etapa-item">
+                                <h4>Etapa 7 - Concluído</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="editDataInicioEtapa7">Start Date:</label>
+                                        <input type="datetime-local" id="editDataInicioEtapa7">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editDataFimEtapa7">End Date:</label>
+                                        <input type="datetime-local" id="editDataFimEtapa7">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit">Save Changes</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="projectDetailsModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Detalhes do Projeto</h2>
+                <div id="projectDetailsContent">
+                </div>
+                <div class="modal-buttons">
+                    <button class="action-button secondary close-modal-btn">Fechar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="subEtapasModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Sub-etapas do Projeto</h2>
+                <div id="subEtapasContent">
+                    <div class="sub-etapas-header">
+                        <h3 id="subEtapasTitulo">Etapa X - Nome da Etapa</h3>
+                        <input type="hidden" id="subEtapasProjetoId">
+                        <input type="hidden" id="subEtapasEtapaPrincipal">
+                    </div>
+                    
+                    <div id="subEtapasList" class="sub-etapas-list">
+                        </div>
+                    
+                    <div class="sub-etapas-form">
+                        <h4>Add New Sub-stage</h4>
+                        <form id="addSubEtapaForm">
+                            <div class="form-row">
+                                <div class="form-group flex-grow">
+                                    <label for="subEtapaDescricao">Description:</label>
+                                    <input type="text" id="subEtapaDescricao" required>
+                                </div>
+                            </div>
+                           <div class="form-group">
+                        <label for="newSubEtapaDueDate">Expected Date:</label>
+                        <input type="date" id="newSubEtapaDueDate">
+                    </div>
+                    <button type="submit" class="action-button primary small">Add</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="confirmDeleteModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Confirm Deletion</h2>
+                <p>
+                    Are you sure you want to delete project
+                    "<strong id="deleteProjectName"></strong>"?
+                </p>
+                <div class="modal-buttons">
+                    <button id="confirmDeleteBtn" class="action-button danger">Delete</button>
+                    <button class="action-button secondary close-modal-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="editSubEtapaModal" class="modal">
+            <div class="modal-content small">
+                <span class="close-modal" onclick="closeModal('editSubEtapaModal')">&times;</span>
+                <h3 id="editSubEtapaTitulo">Edit Sub-Stage</h3>
+                <form id="editSubEtapaForm" class="modal-form">
+                    <input type="hidden" id="editSubEtapaId">
+                    <input type="hidden" id="editSubEtapaProjetoId">
+                    <input type="hidden" id="editSubEtapaEtapaPrincipal">
+                    <div class="form-group">
+                        <label for="editSubEtapaDescricao">Description:</label>
+                        <input type="text" id="editSubEtapaDescricao" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editSubEtapaDueDate">Expected Date:</label>
+                        <input type="date" id="editSubEtapaDueDate">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="submit" class="action-button primary">Save Changes</button>
+                        <button type="button" class="action-button secondary" onclick="closeModal('editSubEtapaModal')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
+    <script src="auto-refresh.js"></script>
 </body>
 </html>
