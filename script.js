@@ -1,5 +1,5 @@
 // script.js
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'dashboard-producao-production.up.railway.app';
 let productionChart = null;
 const pecasPorCaixa = 12; // Constante: 12 peças equivalem a 1 caixa
 
