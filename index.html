@@ -26,8 +26,12 @@
                 </div>
                 <div class="form-group">
                     <label for="password">Senha:</label>
-                    <input type="password" id="password" required>
-                </div>
+                    <div class="password-input-container"> <input type="password" id="password" required>
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password', this)">
+                <i class="fas fa-eye"></i>
+        </button>
+    </div>
+</div>
                 <button type="submit" class="action-button primary">Entrar</button>
                 <p id="loginMessage" class="status-message"></p>
             </form>
@@ -76,29 +80,29 @@
                     <div class="indicator-card meta-card">
                         <div class="card-icon">
                             <i class="fas fa-boxes"></i>
-                        </div>
-                        <div class="card-content">
-                            <div class="card-title">PEÇAS ESTIMADAS</div>
-                            <div class="card-values">
-                                <div class="card-box-value"><span id="totalCaixasEstimadas">0</span> <span class="unit">cx</span></div>
-                                <div class="card-total-value"><span id="totalPecasEstimadas">0</span></div>
-                            </div>
-                            
-                        </div>
                     </div>
+                    <div class="card-content">
+                        <div class="card-title">PEÇAS ESTIMADAS</div>
+                        <div class="card-values">
+                            <div class="card-box-value"><span id="totalCaixasEstimadas">0</span> <span class="unit">cx</span></div>
+                            <div class="card-total-value"><span id="totalPecasEstimadas">0</span></div>
+                        </div>
+
+                    </div>
+            </div>
                     <div class="indicator-card produced-card">
-                        <div class="card-icon">
-                            <i class="fas fa-box-open"></i>
-                        </div>
-                        <div class="card-content">
-                            <div class="card-title">PEÇAS PRODUZIDAS</div>
-                            <div class="card-values">
-                                <div class="card-box-value"><span id="totalCaixasProduzidas">0</span> <span class="unit">cx</span></div>
-                                <div class="card-total-value"><span id="totalPecasProduzidasValue">0</span></div>
-                            </div>
-                            
-                        </div>
-                    </div>
+    <div class="card-icon">
+        <i class="fas fa-box-open"></i>
+    </div>
+    <div class="card-content">
+        <div class="card-title">PEÇAS PRODUZIDAS</div>
+        <div class="card-values">
+            <div class="card-box-value"><span id="totalCaixasProduzidas">0</span> <span class="unit">cx</span></div>
+            <div class="card-total-value"><span id="totalPecasProduzidasValue">0</span></div>
+        </div>
+
+    </div>
+</div>
                     <div class="indicator-card approved-card">
                         <div class="card-icon">
                             <i class="fas fa-check-circle"></i>
@@ -159,20 +163,28 @@
         </div>
 
         <div id="tela2" class="tela">
-            <div class="dashboard-content">
-                <div class="project-list-header">
-                    <h2>Projetos Ativos</h2>
-                    <div class="action-buttons">
-                        
-                        <button id="refreshProjects" class="action-button info">
-                            <i class="fas fa-sync-alt"></i> Atualizar Projetos
-                        </button>
-                    </div>
+    <div class="dashboard-content">
+        <div class="project-list-header">
+            <h2>Projetos Ativos</h2>
+            <div class="stepper-text">
+                <strong>Progresso por Etapa:</strong>
+            </div>
+            <div class="action-buttons">
+                <div class="search-project-container">
+                    <input type="text" id="projectSearchInput" placeholder="Buscar projeto por nome...">
+                    <button id="searchProjectsBtn" class="action-button primary">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
                 </div>
-                <div class="projects-container" id="projectsContainer">
-                </div>
+                <button id="refreshProjects" class="action-button info">
+                    <i class="fas fa-sync-alt"></i> Atualizar Projetos
+                </button>
             </div>
         </div>
+        <div class="projects-container" id="projectsContainer">
+        </div>
+    </div>
+</div>
 
         <div id="tela3" class="tela">
             <div class="form-container">
@@ -196,18 +208,6 @@
                                 <label for="projetoEquipe">Equipe (separar por vírgulas):</label>
                                 <input type="text" id="projetoEquipe" placeholder="Ex: João, Maria, Pedro">
                             </div>
-                            <div class="form-group">
-                                <label for="projetoEtapa">Etapa Inicial:</label>
-                                <select id="projetoEtapa" required>
-                                    <option value="1">1 - Projeto</option>
-                                    <option value="2">2 - Compras</option>
-                                    <option value="3">3 - Usinagem</option>
-                                    <option value="4">4 - Montagem</option>
-                                    <option value="5">5 - Elétrica</option>
-                                    <option value="6">6 - Testes</option>
-                                    <option value="7">7 - Concluído</option>
-                                </select>
-                            </div>
                         </div>
                         
                         <div class="form-row">
@@ -224,108 +224,14 @@
                     </div>
                     
                     <div class="form-section">
-                        <h3>Dates for Stages</h3>
-                        <p class="form-info">Define the start and end dates for each project stage. All dates are optional.</p>
+                        <h3>Etapas do Projeto</h3>
+                        <p class="form-info">Defina o nome e as datas de início/término para cada etapa. Adicione quantas etapas desejar.</p>
                         
-                        <div class="etapas-grid">
-                            <div class="etapa-item">
-                                <h4>Etapa 1 - Projeto</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="dataInicioEtapa1">Start Date:</label>
-                                        <input type="datetime-local" id="dataInicioEtapa1">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dataFimEtapa1">End Date:</label>
-                                        <input type="datetime-local" id="dataFimEtapa1">
-                                    </div>
-                                </div>
+                        <div id="etapasContainer" class="etapas-grid">
                             </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 2 - Compras</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="dataInicioEtapa2">Start Date:</label>
-                                        <input type="datetime-local" id="dataInicioEtapa2">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dataFimEtapa2">End Date:</label>
-                                        <input type="datetime-local" id="dataFimEtapa2">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 3 - Usinagem</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="dataInicioEtapa3">Start Date:</label>
-                                        <input type="datetime-local" id="dataInicioEtapa3">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dataFimEtapa3">End Date:</label>
-                                        <input type="datetime-local" id="dataFimEtapa3">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 4 - Montagem</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="dataInicioEtapa4">Start Date:</label>
-                                        <input type="datetime-local" id="dataInicioEtapa4">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dataFimEtapa4">End Date:</label>
-                                        <input type="datetime-local" id="dataFimEtapa4">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 5 - Elétrica</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="dataInicioEtapa5">Start Date:</label>
-                                        <input type="datetime-local" id="dataInicioEtapa5">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dataFimEtapa5">End Date:</label>
-                                        <input type="datetime-local" id="dataFimEtapa5">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 6 - Testes</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="dataInicioEtapa6">Start Date:</label>
-                                        <input type="datetime-local" id="dataInicioEtapa6">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dataFimEtapa6">End Date:</label>
-                                        <input type="datetime-local" id="dataFimEtapa6">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 7 - Concluído</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="dataInicioEtapa7">Start Date:</label>
-                                        <input type="datetime-local" id="dataInicioEtapa7">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dataFimEtapa7">End Date:</label>
-                                        <input type="datetime-local" id="dataFimEtapa7">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <button type="button" id="addEtapaBtn" class="action-button secondary">
+                            <i class="fas fa-plus"></i> Adicionar Etapa
+                        </button>
                     </div>
 
                     <button type="submit" class="submit-button">Cadastrar Projeto</button>
@@ -426,18 +332,6 @@
                                 <label for="editProjetoEquipe">Equipe (separar por vírgulas):</label>
                                 <input type="text" id="editProjetoEquipe" placeholder="Ex: João, Maria, Pedro">
                             </div>
-                            <div class="form-group">
-                                <label for="editProjetoEtapa">Etapa Atual:</label>
-                                <select id="editProjetoEtapa" required>
-                                    <option value="1">1 - Projeto</option>
-                                    <option value="2">2 - Compras</option>
-                                    <option value="3">3 - Usinagem</option>
-                                    <option value="4">4 - Montagem</option>
-                                    <option value="5">5 - Elétrica</option>
-                                    <option value="6">6 - Testes</option>
-                                    <option value="7">7 - Concluído</option>
-                                </select>
-                            </div>
                         </div>
                         
                         <div class="form-row">
@@ -454,111 +348,17 @@
                     </div>
                     
                     <div class="form-section">
-                        <h3>Dates for Stages</h3>
-                        <p class="form-info">Define the start and end dates for each project stage. All dates are optional.</p>
+                        <h3>Etapas do Projeto</h3>
+                        <p class="form-info">Defina o nome e as datas de início/término para cada etapa. Adicione ou remova etapas.</p>
                         
-                        <div class="etapas-grid">
-                            <div class="etapa-item">
-                                <h4>Etapa 1 - Projeto</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="editDataInicioEtapa1">Start Date:</label>
-                                        <input type="datetime-local" id="editDataInicioEtapa1">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="editDataFimEtapa1">End Date:</label>
-                                        <input type="datetime-local" id="editDataFimEtapa1">
-                                    </div>
-                                </div>
+                        <div id="editEtapasContainer" class="etapas-grid">
                             </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 2 - Compras</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="editDataInicioEtapa2">Start Date:</label>
-                                        <input type="datetime-local" id="editDataInicioEtapa2">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="editDataFimEtapa2">End Date:</label>
-                                        <input type="datetime-local" id="editDataFimEtapa2">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 3 - Usinagem</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="editDataInicioEtapa3">Start Date:</label>
-                                        <input type="datetime-local" id="editDataInicioEtapa3">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="editDataFimEtapa3">End Date:</label>
-                                        <input type="datetime-local" id="editDataFimEtapa3">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 4 - Montagem</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="editDataInicioEtapa4">Start Date:</label>
-                                        <input type="datetime-local" id="editDataInicioEtapa4">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="editDataFimEtapa4">End Date:</label>
-                                        <input type="datetime-local" id="editDataFimEtapa4">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 5 - Elétrica</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="editDataInicioEtapa5">Start Date:</label>
-                                        <input type="datetime-local" id="editDataInicioEtapa5">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="editDataFimEtapa5">End Date:</label>
-                                        <input type="datetime-local" id="editDataFimEtapa5">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 6 - Testes</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="editDataInicioEtapa6">Start Date:</label>
-                                        <input type="datetime-local" id="editDataInicioEtapa6">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="editDataFimEtapa6">End Date:</label>
-                                        <input type="datetime-local" id="editDataFimEtapa6">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="etapa-item">
-                                <h4>Etapa 7 - Concluído</h4>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="editDataInicioEtapa7">Start Date:</label>
-                                        <input type="datetime-local" id="editDataInicioEtapa7">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="editDataFimEtapa7">End Date:</label>
-                                        <input type="datetime-local" id="editDataFimEtapa7">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <button type="button" id="editAddEtapaBtn" class="action-button secondary">
+                            <i class="fas fa-plus"></i> Adicionar Etapa
+                        </button>
                     </div>
 
-                    <button type="submit">Save Changes</button>
+                    <button type="submit">Salvar</button>
                 </form>
             </div>
         </div>
@@ -568,7 +368,7 @@
                 <span class="close-modal">&times;</span>
                 <h2>Detalhes do Projeto</h2>
                 <div id="projectDetailsContent">
-                </div>
+                    </div>
                 <div class="modal-buttons">
                     <button class="action-button secondary close-modal-btn">Fechar</button>
                 </div>
@@ -581,28 +381,27 @@
                 <h2>Sub-etapas do Projeto</h2>
                 <div id="subEtapasContent">
                     <div class="sub-etapas-header">
-                        <h3 id="subEtapasTitulo">Etapa X - Nome da Etapa</h3>
+                        <h3 id="subEtapasTitulo">Nome da Etapa</h3>
                         <input type="hidden" id="subEtapasProjetoId">
-                        <input type="hidden" id="subEtapasEtapaPrincipal">
-                    </div>
+                        <input type="hidden" id="subEtapasEtapaId"> </div>
                     
                     <div id="subEtapasList" class="sub-etapas-list">
                         </div>
                     
                     <div class="sub-etapas-form">
-                        <h4>Add New Sub-stage</h4>
+                        <h4>Adicionar Sub-etapa</h4>
                         <form id="addSubEtapaForm">
                             <div class="form-row">
                                 <div class="form-group flex-grow">
-                                    <label for="subEtapaDescricao">Description:</label>
+                                    <label for="subEtapaDescricao">Descrição</label>
                                     <input type="text" id="subEtapaDescricao" required>
                                 </div>
                             </div>
                            <div class="form-group">
-                        <label for="newSubEtapaDueDate">Expected Date:</label>
+                        <label for="newSubEtapaDueDate">Data Limite</label>
                         <input type="date" id="newSubEtapaDueDate">
                     </div>
-                    <button type="submit" class="action-button primary small">Add</button>
+                    <button type="submit" class="action-button primary small">Adicionar</button>
                         </form>
                     </div>
                 </div>
@@ -612,14 +411,14 @@
         <div id="confirmDeleteModal" class="modal">
             <div class="modal-content">
                 <span class="close-modal">&times;</span>
-                <h2>Confirm Deletion</h2>
+                <h2>Confirmar Exclusão</h2>
                 <p>
-                    Are you sure you want to delete project
+                    Tem certeza que deseja excluir o projeto
                     "<strong id="deleteProjectName"></strong>"?
                 </p>
                 <div class="modal-buttons">
-                    <button id="confirmDeleteBtn" class="action-button danger">Delete</button>
-                    <button class="action-button secondary close-modal-btn">Cancel</button>
+                    <button id="confirmDeleteBtn" class="action-button danger">Excluir</button>
+                    <button class="action-button secondary close-modal-btn">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -627,22 +426,21 @@
         <div id="editSubEtapaModal" class="modal">
             <div class="modal-content small">
                 <span class="close-modal" onclick="closeModal('editSubEtapaModal')">&times;</span>
-                <h3 id="editSubEtapaTitulo">Edit Sub-Stage</h3>
+                <h3 id="editSubEtapaTitulo">Editar Sub-Etapa</h3>
                 <form id="editSubEtapaForm" class="modal-form">
                     <input type="hidden" id="editSubEtapaId">
                     <input type="hidden" id="editSubEtapaProjetoId">
-                    <input type="hidden" id="editSubEtapaEtapaPrincipal">
-                    <div class="form-group">
-                        <label for="editSubEtapaDescricao">Description:</label>
+                    <input type="hidden" id="editSubEtapaEtapaId"> <div class="form-group">
+                        <label for="editSubEtapaDescricao">Descrição</label>
                         <input type="text" id="editSubEtapaDescricao" required>
                     </div>
                     <div class="form-group">
-                        <label for="editSubEtapaDueDate">Expected Date:</label>
+                        <label for="editSubEtapaDueDate">Data Limite</label>
                         <input type="date" id="editSubEtapaDueDate">
                     </div>
                     <div class="modal-actions">
-                        <button type="submit" class="action-button primary">Save Changes</button>
-                        <button type="button" class="action-button secondary" onclick="closeModal('editSubEtapaModal')">Cancel</button>
+                        <button type="submit" class="action-button primary">Salvar</button>
+                        <button type="button" class="action-button secondary" onclick="closeModal('editSubEtapaModal')">Cancelar</button>
                     </div>
                 </form>
             </div>
@@ -650,6 +448,6 @@
     </div>
 
     <script src="script.js"></script>
-    <script src="auto-refresh.js"></script>
+    
 </body>
 </html>

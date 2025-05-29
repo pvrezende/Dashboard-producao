@@ -1,10 +1,21 @@
+// script.js
 const API_BASE_URL = 'http://localhost:3000/api';
 let productionChart = null;
-const pecasPorCaixa = 12; // Constante para definir quantas peças por caixa
+const pecasPorCaixa = 12; // Constante: 12 peças equivalem a 1 caixa
 
-// Global variables for user authentication
+// Variáveis globais para autenticação do usuário
 let currentUserToken = null;
 let currentUserRole = null;
+
+// Variável para armazenar o ID do intervalo de atualização automática dos projetos (para tela2)
+let autoRefreshProjectsInterval; 
+
+// Variável para armazenar o ID do intervalo de atualização automática do dashboard (para tela1)
+let autoRefreshDashboardInterval; 
+
+// Variável para o contador de etapas dinâmicas (usado no cadastro e edição)
+let dynamicEtapaCounter = 0;
+
 
 // ===============================================
 // Funções de Utilidade (Globais)
@@ -93,6 +104,7 @@ function formatDate(dateString, includeTime = false) {
     return date.toLocaleDateString('pt-BR', options);
 }
 
+
 /**
  * Alterna entre telas
  * @param {string} screenId - ID da tela a ser exibida.
@@ -111,13 +123,25 @@ function switchScreen(screenId) {
     document.querySelector(`.screen-selector button[onclick="switchScreen('${screenId}')"]`).classList.add('active');
     document.getElementById(screenId).classList.add('active');
 
-    // Se for a tela de projetos, carregar os projetos
+    // Gerenciar a atualização automática de projetos (Tela 2)
     if (screenId === 'tela2') {
-        fetchProjects();
+        fetchProjects(); // Carrega os projetos na mudança para a Tela 2
+        startAutoRefreshProjects(10); // Inicia a atualização automática para a Tela 2 (a cada 10 segundos)
+        stopAutoRefreshDashboard(); // Para o auto-refresh do dashboard se mudar para tela2
+    } else {
+        stopAutoRefreshProjects(); // Para a atualização automática de projetos se mudar para outra tela
+    }
+
+    // Gerenciar a atualização automática do dashboard (Tela 1)
+    if (screenId === 'tela1') {
+        setupDateFilter(); // Garante que a data e indicadores sejam carregados
+        startAutoRefreshDashboard(10); // Inicia a atualização automática para o dashboard
+    } else {
+        stopAutoRefreshDashboard(); // Para o auto-refresh do dashboard se mudar para outra tela
     }
 }
 
-//deixar em tela cheia
+// Lógica de tela cheia para o dashboard principal (Tela 1)
 document.getElementById('toggleFullscreenDashboard').addEventListener('click', function() {
     if (!document.fullscreenElement) {
         // Se não está em tela cheia, entra em tela cheia
@@ -134,21 +158,13 @@ document.getElementById('toggleFullscreenDashboard').addEventListener('click', f
             document.exitFullscreen();
         } else if (document.webkitExitFullscreen) {
             document.webkitExitFullscreen();
-        } else if (document.documentElement.msExitFullscreen) { // Corrected: msExitFullscreen
+        } else if (document.documentElement.msExitFullscreen) {
             document.exitFullscreen();
         }
     }
 });
-
-
-// Adicione event listeners para os botões
-document.getElementById('toggleFullscreenDashboard').addEventListener('click', function() {
-    toggleFullscreen('tela1');
-});
-
-
 // ===============================================
-// New: User Authentication Functions
+// Funções de Autenticação de Usuário
 // ===============================================
 
 async function handleLogin(event) {
@@ -183,17 +199,19 @@ async function handleLogin(event) {
 
         localStorage.setItem('accessToken', currentUserToken);
         localStorage.setItem('userRole', currentUserRole);
-        localStorage.setItem('username', data.username); // Store username if needed for display
+        localStorage.setItem('username', data.username); // Armazenar o nome de usuário se necessário para exibição
 
         closeModal('loginModal');
-        document.getElementById('appContent').style.display = 'block'; // Show main content
-        applyRolePermissions(); // Apply permissions based on the logged-in role
+        document.getElementById('appContent').style.display = 'block'; // Mostrar o conteúdo principal
+        applyRolePermissions(); // Aplicar permissões com base no perfil logado
         showToast(`Bem-vindo, ${data.username}!`, 'success');
 
-        // Initialize dashboard content after login
+        // Inicializar o conteúdo do dashboard principal e iniciar o auto-refresh para Tela 1
         updateCurrentDateTime();
-        setInterval(updateCurrentDateTime, 1000);
-        setupDateFilter();
+        setInterval(updateCurrentDateTime, 1000); // Atualiza data/hora no header continuamente
+        
+        // As funções startAutoRefreshDashboard e fetchIndicadores serão chamadas via switchScreen('tela1')
+        // no DOMContentLoaded ou ao clicar no botão Dashboard.
 
     } catch (error) {
         console.error('Erro de rede ou servidor:', error);
@@ -209,48 +227,47 @@ function handleLogout() {
     localStorage.removeItem('userRole');
     localStorage.removeItem('username');
     showToast('Sessão encerrada.', 'info');
-    document.getElementById('appContent').style.display = 'none'; // Hide main content
-    openModal('loginModal'); // Show login modal
+    document.getElementById('appContent').style.display = 'none'; // Esconder o conteúdo principal
+    openModal('loginModal'); // Mostrar o modal de login
     document.getElementById('loginForm').reset();
     document.getElementById('loginMessage').textContent = '';
-    // Stop auto-refresh if it's running
-    if (typeof stopAutoRefresh === 'function') {
-        stopAutoRefresh();
-    }
+    // Parar todas as atualizações automáticas ao deslogar
+    stopAutoRefreshProjects();
+    stopAutoRefreshDashboard();
 }
 
 function applyRolePermissions() {
     const registerProductionBtn = document.getElementById('registerProductionBtn');
-    const generateReportModalBtn = document.getElementById('generateReportModalBtn'); // This is always visible now
+    const generateReportModalBtn = document.getElementById('generateReportModalBtn'); // Este é sempre visível agora
     const tela3Button = document.querySelector('.screen-selector button[onclick="switchScreen(\'tela3\')"]');
 
-    // Elements within project cards (edit/delete/sub-etapas actions)
-    // These will be handled dynamically when project cards are created in createProjectCard
-    // and when sub-etapa actions are rendered in openSubEtapasModal.
+    // Elementos dentro dos cards de projeto (ações de editar/excluir/sub-etapas)
+    // Estes serão tratados dinamicamente quando os cards de projeto forem criados em createProjectCard
+    // e quando as ações de sub-etapa forem renderizadas em openSubEtapasModal.
 
-    // Always visible to everyone (as per "Visualização (Pode ver apenas as 3 telas sem modificar nada) - nesse é aberto para todos !")
+    // Sempre visível para todos (conforme "Visualização (Pode ver apenas as 3 telas sem modificar nada) - nesse é aberto para todos !")
     generateReportModalBtn.style.display = 'inline-block';
     document.getElementById('toggleFullscreenDashboard').style.display = 'inline-block';
 
-    // Register Production Button
+    // Botão de Registrar Produção
     if (registerProductionBtn) {
-        if (['diretoria', 'coordenador', 'lider'].includes(currentUserRole)) { //
+        if (['diretoria', 'coordenador', 'lider'].includes(currentUserRole)) {
             registerProductionBtn.style.display = 'inline-block';
         } else {
             registerProductionBtn.style.display = 'none';
         }
     }
 
-    // Cadastro de Projetos (Tela 3)
+// Cadastro de Projetos (Tela 3)
     if (tela3Button) {
-        if (['diretoria', 'coordenador'].includes(currentUserRole)) { //
+        if (['diretoria', 'coordenador'].includes(currentUserRole)) {
             tela3Button.style.display = 'inline-block';
         } else {
             tela3Button.style.display = 'none';
         }
     }
 
-    // Refresh Projects button is visible for all roles that can see Tela 2 (all roles).
+    // O botão Atualizar Projetos é visível para todos os perfis que podem ver a Tela 2 (todos os perfis).
     const refreshProjectsBtn = document.getElementById('refreshProjects');
     if (refreshProjectsBtn) {
         refreshProjectsBtn.style.display = 'inline-block';
@@ -258,7 +275,7 @@ function applyRolePermissions() {
 }
 
 
-// Function to make authenticated fetch requests
+// Função para fazer requisições fetch autenticadas
 async function authenticatedFetch(url, options = {}) {
     const token = localStorage.getItem('accessToken');
     const headers = {
@@ -272,14 +289,34 @@ async function authenticatedFetch(url, options = {}) {
 
     const response = await fetch(url, { ...options, headers });
 
-    // Handle 401/403 responses
+    // Lida com respostas 401/403
     if (response.status === 401 || response.status === 403) {
         showError('Sua sessão expirou ou você não tem permissão. Por favor, faça login novamente.');
-        handleLogout(); // Log out the user
-        throw new Error('Authentication or authorization error');
+        handleLogout(); // Faz logout do usuário
+        throw new Error('Erro de autenticação ou autorização');
     }
 
     return response;
+}
+
+/**
+ * Alterna a visibilidade de um campo de entrada de senha.
+ * @param {string} inputId - O ID do campo de entrada de senha.
+ * @param {HTMLElement} buttonElement - O elemento do botão que acionou a alternância.
+ */
+function togglePasswordVisibility(inputId, buttonElement) {
+    const passwordInput = document.getElementById(inputId);
+    const icon = buttonElement.querySelector('i');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
 }
 
 
@@ -315,7 +352,7 @@ function setupDateFilter() {
     if (selectedDateInput) {
         // Define a data atual como padrão
         const today = new Date();
-        const formattedToday = today.toISOString().split('T')[0]; // FormatogetFullYear()-MM-DD
+        const formattedToday = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
         selectedDateInput.value = formattedToday;
 
         // Adiciona evento de mudança para atualizar os dados quando a data for alterada
@@ -421,16 +458,17 @@ async function fetchIndicadores(selectedDate = null) {
 
 /**
  * Atualiza o gráfico de produção por hora.
- * @param {Array<Object>} producaoPorHora - Dados de produção por hora.
+ * @param {Array<Object>} producaoPorHora - Dados de produção por hora (onde total_pecas é na verdade total de caixas).
  */
 function updateProductionChart(producaoPorHora) {
     const ctx = document.getElementById('productionChart').getContext('2d');
 
+    // Ajustar aqui: Se total_pecas do backend é na verdade "caixas", então os labels devem ser "Caixas"
     const labels = producaoPorHora.map(item => `${String(item.hora).padStart(2, '0')}:00`);
-    const data = producaoPorHora.map(item => item.total_pecas);
+    const data = producaoPorHora.map(item => item.total_pecas); // 'total_pecas' aqui são as caixas
 
-    // Valor fixo da meta por hora
-    const metaPorHora = 8.5;
+    // Valor fixo da meta por hora (assumindo que a meta também é em caixas por hora)
+    const metaPorHora = 8.5; // Ajuste este valor se sua meta for de peças por hora, não caixas.
 
     // Criar um array com o mesmo tamanho dos labels, preenchido com o valor da meta
     const metaData = Array(labels.length).fill(metaPorHora);
@@ -445,25 +483,25 @@ function updateProductionChart(producaoPorHora) {
             labels: labels,
             datasets: [
                 {
-                    label: 'Peças Produzidas por Hora',
+                    label: 'Caixas Produzidas por Hora', // **ATUALIZADO**
                     data: data,
                     backgroundColor: 'rgba(0, 123, 255, 0.5)',
                     borderColor: 'rgba(0, 123, 255, 1)',
                     borderWidth: 1,
-                    order: 2 // Ordem de renderização (barras atrás da linha)
+                    order: 2
                 },
                 {
-                    label: 'Meta por Hora',
+                    label: 'Meta por Hora (Caixas)', // **ATUALIZADO**
                     data: metaData,
                     type: 'line',
                     fill: false,
-                    borderColor: '#ffc107', // Amarelo
+                    borderColor: '#ffc107',
                     borderWidth: 2,
-                    borderDash: [5, 5], // Linha pontilhada
-                    pointRadius: 0, // Sem pontos nos dados
-                    pointHoverRadius: 0, // Sem pontos ao passar o mouse
-                    tension: 0, // Linha reta
-                    order: 1 // Ordem de renderização (linha na frente das barras)
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    tension: 0,
+                    order: 1
                 }
             ]
         },
@@ -475,7 +513,7 @@ function updateProductionChart(producaoPorHora) {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Total de Peças'
+                        text: 'Total de Caixas' // **ATUALIZADO**
                     }
                 },
                 x: {
@@ -498,7 +536,12 @@ function updateProductionChart(producaoPorHora) {
                                 label += ': ';
                             }
                             if (context.parsed.y !== null) {
-                                label += context.parsed.y + ' peças';
+                                // Se for o dataset de caixas produzidas ou meta, adicionar 'caixas'
+                                if (context.dataset.label.includes('Caixas') || context.dataset.label.includes('Meta')) {
+                                    label += context.parsed.y + ' caixas'; // **ATUALIZADO**
+                                } else {
+                                    label += context.parsed.y + ' peças'; // Para outros casos, se houver
+                                }
                             }
                             return label;
                         }
@@ -521,22 +564,22 @@ async function openRegisterModal() {
         const dataHoraMetaInput = document.getElementById('dataHoraMetaInput');
         const dataHoraProducaoInput = document.getElementById('dataHoraProducaoInput');
 
-        // Reset forms to clear previous values
+        // Resetar formulários para limpar valores anteriores
         document.getElementById('registerProductionForm').reset();
 
-        // Set current date for meta input
+        // Definir a data atual para o input de meta
         const today = new Date();
-        const formattedToday = today.toISOString().split('T')[0];
+        const formattedToday = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
         dataHoraMetaInput.value = formattedToday;
 
-        // Set current date and time for production input
+        // Definir a data e hora atual para o input de produção
         const now = new Date();
         const offset = now.getTimezoneOffset() * 60000;
         const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
         dataHoraProducaoInput.value = localISOTime;
 
-        // Populate pecasEstimadasInput with current meta for the initially selected date
-        // Use the date from the main dashboard filter if available, otherwise today
+        // Popular pecasEstimadasInput com a meta atual para a data inicialmente selecionada
+        // Usar a data do filtro do dashboard principal se disponível, caso contrário, a data de hoje
         const initialSelectedDate = document.getElementById('selectedDate').value || formattedToday;
 
         try {
@@ -546,28 +589,28 @@ async function openRegisterModal() {
                 const currentMetaBoxes = data.metaDiaria.length > 0 ? data.metaDiaria[0].meta : 0;
                 pecasEstimadasInput.value = currentMetaBoxes;
             } else {
-                console.error('Failed to fetch current meta for registration modal.');
-                pecasEstimadasInput.value = 0; // Default if fetch fails
+                console.error('Falha ao buscar a meta atual para o modal de registro.');
+                pecasEstimadasInput.value = 0; // Padrão se a busca falhar
             }
         } catch (error) {
-            console.error('Error fetching current meta:', error);
-            pecasEstimadasInput.value = 0; // Default if error
+            console.error('Erro ao buscar a meta atual:', error);
+            pecasEstimadasInput.value = 0; // Padrão em caso de erro
         }
 
-        // Set editability for pecasEstimadasInput and updateMetaBtn based on role
+        // Definir editabilidade para pecasEstimadasInput e updateMetaBtn com base no perfil
         const updateMetaBtn = document.getElementById('updateMetaBtn');
         if (['diretoria', 'coordenador'].includes(currentUserRole)) {
             pecasEstimadasInput.removeAttribute('readonly');
             pecasEstimadasInput.classList.remove('disabled-field');
             dataHoraMetaInput.removeAttribute('readonly');
-            dataHoraMetaInput.classList.remove('disabled-field');
+            dataHoraMetaInput.classList.add('disabled-field'); // A data da meta continua desabilitada para edição
             updateMetaBtn.style.display = 'inline-block';
         } else {
             pecasEstimadasInput.setAttribute('readonly', true);
             pecasEstimadasInput.classList.add('disabled-field');
             dataHoraMetaInput.setAttribute('readonly', true);
             dataHoraMetaInput.classList.add('disabled-field');
-            updateMetaBtn.style.display = 'none'; // Hide the update meta button for unauthorized roles
+            updateMetaBtn.style.display = 'none'; // Ocultar o botão de atualização de meta para perfis não autorizados
         }
     }
 }
@@ -580,7 +623,7 @@ async function updateDailyMeta() {
     const dataHoraMetaInput = document.getElementById('dataHoraMetaInput');
 
     const pecasEstimadas = parseInt(pecasEstimadasInput.value);
-    const selectedDate = dataHoraMetaInput.value; // This will be in YYYY-MM-DD format from the input type="date"
+    const selectedDate = dataHoraMetaInput.value; // Isso estará no formato YYYY-MM-DD vindo do input type="date"
 
     if (isNaN(pecasEstimadas) || pecasEstimadas < 0) {
         showError('Por favor, insira uma quantidade válida de peças estimadas para a meta.');
@@ -591,8 +634,8 @@ async function updateDailyMeta() {
         return;
     }
 
-    // Format the date to DD/MM/YYYY before sending to the backend
-    const formattedDateForDB = formatDateForDB(selectedDate); // This is where the conversion happens
+    // Formatar a data para DD/MM/YYYY antes de enviar para o backend
+    const formattedDateForDB = formatDateForDB(selectedDate); // É aqui que a conversão acontece
 
     try {
         const metaUpdateResponse = await authenticatedFetch(`${API_BASE_URL}/meta_dia`, {
@@ -601,7 +644,7 @@ async function updateDailyMeta() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                date: formattedDateForDB, // Sending DD/MM/YYYY
+                date: formattedDateForDB, // Enviando DD/MM/YYYY
                 meta: pecasEstimadas
             }),
         });
@@ -612,8 +655,8 @@ async function updateDailyMeta() {
         }
 
         showToast('Meta diária atualizada com sucesso!', 'success');
-        fetchIndicadores(document.getElementById('selectedDate').value); // Refresh dashboard indicators
-        // closeModal('registerModal'); // Keep modal open if user might want to register production
+        fetchIndicadores(document.getElementById('selectedDate').value); // Atualizar os indicadores do dashboard
+        // closeModal('registerModal'); // Manter o modal aberto se o usuário quiser registrar a produção
     } catch (error) {
         console.error('Erro ao atualizar meta diária:', error);
         showError('Erro ao atualizar meta diária: ' + error.message);
@@ -626,20 +669,20 @@ async function updateDailyMeta() {
  * Envia os dados para o backend.
  */
 async function registerProduction(event) {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault(); // Prevenir o envio padrão do formulário
 
     const qtdDadosInput = document.getElementById('qtdDadosInput');
     const pecasReprovadaInput = document.getElementById('pecasReprovadaInput');
     const dataHoraProducaoInput = document.getElementById('dataHoraProducaoInput');
 
-    const qtdDados = parseInt(qtdDadosInput.value) || 0; // Set to 0 if empty or NaN
+    const qtdDados = parseInt(qtdDadosInput.value) || 0; // Definir como 0 se vazio ou NaN
     const pecasReprovadas = parseInt(pecasReprovadaInput.value) || 0;
     const dateObj = new Date(dataHoraProducaoInput.value);
-    const dataHora = formatDateTimeForDB(dateObj); // This formats to 'DD/MM/YYYY HH:mm:ss'
+    const dataHora = formatDateTimeForDB(dateObj); // Isso formata para 'DD/MM/YYYY HH:mm:ss'
     const selectedDateForRefresh = dataHoraProducaoInput.value.split('T')[0];
 
-    // --- MODIFIED VALIDATION LOGIC ---
-    if (qtdDados < 0) { // Only check for negative values
+    // --- Lógica de Validação Modificada ---
+    if (qtdDados < 0) { // Verificar apenas valores negativos
         showError('Por favor, insira uma quantidade válida de caixas produzidas (não negativa).');
         return;
     }
@@ -648,22 +691,22 @@ async function registerProduction(event) {
         return;
     }
 
-    // Check if at least one field has a positive value
+    // Verificar se pelo menos um campo tem um valor positivo
     if (qtdDados === 0 && pecasReprovadas === 0) {
         showError('Por favor, insira a quantidade de caixas produzidas ou peças reprovadas para registrar.');
         return;
     }
-    // --- END MODIFIED VALIDATION LOGIC ---
+    // --- Fim da Lógica de Validação Modificada ---
 
     try {
-        // Register Production if qtdDados > 0
+        // Registrar Produção se qtdDados > 0
         if (qtdDados > 0) {
             const productionResponse = await authenticatedFetch(`${API_BASE_URL}/producao`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ qtdDados, dataHora }), // Sends dataHora as 'DD/MM/YYYY HH:mm:ss'
+                body: JSON.stringify({ qtdDados, dataHora }), // Envia dataHora como 'DD/MM/YYYY HH:mm:ss'
             });
 
             if (!productionResponse.ok) {
@@ -673,15 +716,15 @@ async function registerProduction(event) {
             showToast('Produção registrada com sucesso!', 'success');
         }
 
-        // Register Rejected Pieces if pecasReprovadas > 0
+        // Registrar Peças Rejeitadas se pecasReprovadas > 0
         if (pecasReprovadas > 0) {
             const eficienciaResponse = await authenticatedFetch(`${API_BASE_URL}/eficiencia`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                // This is the call that failed before.
-                // It now sends the 'flag' and 'dataHora' to the new dedicated endpoint.
+                // Essa é a chamada que falhou antes.
+                // Agora envia a 'flag' e 'dataHora' para o novo endpoint dedicado.
                 body: JSON.stringify({ qtd: pecasReprovadas, flag: 'rejeitada', dataHora }),
             });
             if (!eficienciaResponse.ok) {
@@ -693,26 +736,27 @@ async function registerProduction(event) {
             }
         }
 
-        // If only one of them was submitted, give a more specific message, otherwise combine.
+
+        // Se apenas um deles foi enviado, dar uma mensagem mais específica, caso contrário, combinar.
         if (qtdDados > 0 && pecasReprovadas > 0) {
             showToast('Produção e peças reprovadas registradas com sucesso!', 'success');
         } else if (qtdDados > 0) {
-             // Already handled by specific production success toast above
+             // Já tratado pelo toast de sucesso de produção específico acima
         } else if (pecasReprovadas > 0) {
-            // Already handled by specific rejected pieces success toast above
+            // Já tratado pelo toast de sucesso de peças reprovadas específico acima
         }
 
 
-        // Reset only the production-related fields after successful submission
+        // Resetar apenas os campos relacionados à produção após o envio bem-sucedido
         qtdDadosInput.value = '';
         pecasReprovadaInput.value = '';
 
-        // Re-set the automatic date/time for the next entry
+        // Redefinir a data/hora automática para a próxima entrada
         const now = new Date();
         const offset = now.getTimezoneOffset() * 60000;
         dataHoraProducaoInput.value = (new Date(now - offset)).toISOString().slice(0, 16);
 
-        fetchIndicadores(selectedDateForRefresh); // Refresh dashboard indicators
+        fetchIndicadores(selectedDateForRefresh); // Atualizar os indicadores do dashboard
 
     } catch (error) {
         console.error('Erro:', error);
@@ -729,18 +773,20 @@ async function generateReport() {
     const reportEndDateInput = document.getElementById('reportEndDate');
     const startDate = reportStartDateInput.value;
     const endDate = reportEndDateInput.value;
+    const reportModalContent = document.querySelector('#reportModal .modal-content');
 
-    // Basic date validation
+    // Validação básica de datas
     if (!startDate || !endDate) {
         showError('Por favor, selecione as datas de início e fim para o relatório.');
+        reportModalContent.classList.remove('fullscreen-report');
         return;
     }
     if (new Date(startDate) > new Date(endDate)) {
         showError('A data de início não pode ser posterior à data de fim.');
+        reportModalContent.classList.remove('fullscreen-report');
         return;
     }
 
-    // Use the /relatorio endpoint that supports date range
     let url = `${API_BASE_URL}/relatorio`;
     const params = new URLSearchParams();
     params.append('startDate', startDate);
@@ -763,35 +809,39 @@ async function generateReport() {
         document.getElementById('downloadOptions').style.display = 'block';
 
         let totalPiecesEstimatedOverall = 0;
-        let totalPiecesProducedOverall = 0;
-        let totalPiecesRejectedOverall = 0;
+        let totalPiecesProducedOverall = 0; // Este é o total de CAIXAS produzidas
+        let totalPiecesRejectedOverall = 0; // Este é o total de PEÇAS reprovadas
 
         dailyReportData.forEach(day => {
-            totalPiecesEstimatedOverall += day.meta_dia_total || 0;
-            totalPiecesProducedOverall += day.total_produzido_dia || 0;
-            totalPiecesRejectedOverall += day.total_reprovado_dia || 0;
+            totalPiecesEstimatedOverall += Number(day.meta_dia_total) || 0; // Meta em CAIXAS
+            totalPiecesProducedOverall += Number(day.total_produzido_dia) || 0; // Produzido em CAIXAS
+            totalPiecesRejectedOverall += Number(day.total_reprovado_dia) || 0; // Reprovado em PEÇAS
         });
 
-        const totalPiecesApprovedOverall = totalPiecesProducedOverall - totalPiecesRejectedOverall;
+        const totalPiecesApprovedOverall = (totalPiecesProducedOverall * pecasPorCaixa) - totalPiecesRejectedOverall; // Aprovados em PEÇAS
 
         let overallPercentApproved = 0;
         let overallPercentRejected = 0;
 
-        if (totalPiecesProducedOverall > 0) {
-            overallPercentApproved = ((totalPiecesApprovedOverall / totalPiecesProducedOverall) * 100).toFixed(2);
-            overallPercentRejected = ((totalPiecesRejectedOverall / totalPiecesProducedOverall) * 100).toFixed(2);
+        if ((totalPiecesProducedOverall * pecasPorCaixa) > 0) { // Calcular % com base em peças produzidas
+            overallPercentApproved = (totalPiecesApprovedOverall / (totalPiecesProducedOverall * pecasPorCaixa) * 100).toFixed(2);
+            overallPercentRejected = (totalPiecesRejectedOverall / (totalPiecesProducedOverall * pecasPorCaixa) * 100).toFixed(2);
         }
 
-        const totalBoxesEstimatedOverall = Math.floor(totalPiecesEstimatedOverall / pecasPorCaixa);
-        const totalBoxesProducedOverall = Math.floor(totalPiecesProducedOverall / pecasPorCaixa);
+        const formattedTotalBoxesEstimatedOverall = Math.round(totalPiecesEstimatedOverall).toLocaleString('pt-BR');
+        const formattedTotalPiecesEstimatedOverall = Math.round(totalPiecesEstimatedOverall * pecasPorCaixa).toLocaleString('pt-BR');
+
+        const formattedTotalBoxesProducedOverall = Math.round(totalPiecesProducedOverall).toLocaleString('pt-BR');
+        const formattedTotalPiecesProducedInUnits = Math.round(totalPiecesProducedOverall * pecasPorCaixa).toLocaleString('pt-BR');
+        
+        const formattedTotalPiecesApprovedOverall = Math.round(totalPiecesApprovedOverall).toLocaleString('pt-BR');
+        const formattedTotalPiecesRejectedOverall = Math.round(totalPiecesRejectedOverall).toLocaleString('pt-BR');
 
         const startDateFormatted = new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR');
         const endDateFormatted = new Date(endDate + 'T00:00:00').toLocaleDateString('pt-BR');
         const periodoTexto = startDate === endDate ?
             `${startDateFormatted}` :
             `${startDateFormatted} a ${endDateFormatted}`;
-
-        const displayTotalPiecesProducedOverall = Number(totalPiecesProducedOverall);
 
         const summary = document.createElement('div');
         summary.className = 'report-summary';
@@ -800,19 +850,19 @@ async function generateReport() {
             <div class="summary-grid">
                 <div class="summary-item">
                     <div class="summary-label">Peças Estimadas:</div>
-                    <div class="summary-value">${totalBoxesEstimatedOverall} cx (${totalPiecesEstimatedOverall} peças)</div>
+                    <div class="summary-value">${formattedTotalBoxesEstimatedOverall} cx (${formattedTotalPiecesEstimatedOverall} peças)</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Peças Produzidas:</div>
-                    <div class="summary-value">${totalBoxesProducedOverall} cx (${displayTotalPiecesProducedOverall} peças)</div>
+                    <div class="summary-value">${formattedTotalBoxesProducedOverall} cx (${formattedTotalPiecesProducedInUnits} peças)</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Total Aprovados:</div>
-                    <div class="summary-value">${totalPiecesApprovedOverall} peças</div>
+                    <div class="summary-value">${formattedTotalPiecesApprovedOverall} peças</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Total Reprovados:</div>
-                    <div class="summary-value">${totalPiecesRejectedOverall} peças</div>
+                    <div class="summary-value">${formattedTotalPiecesRejectedOverall} peças</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">% Aprovados:</div>
@@ -847,7 +897,8 @@ async function generateReport() {
                     <th>Aprovado (peças)</th>
                     <th>Reprovado (peças)</th>
                     <th>% Aprovado</th>
-                    <th>% Reprovado</th> </tr>
+                    <th>% Reprovado</th>
+                </tr>
             `;
             table.appendChild(thead);
 
@@ -855,31 +906,31 @@ async function generateReport() {
 
             dailyReportData.forEach(day => {
                 const date = new Date(day.report_date).toLocaleDateString('pt-BR');
-                const produzido = day.total_produzido_dia || 0;
-                const reprovado = day.total_reprovado_dia || 0;
-                const aprovado = produzido - reprovado;
-                const meta = day.meta_dia_total || 0;
+                const meta = Number(day.meta_dia_total) || 0; // Meta em caixas
+                const produzidoCaixas = Number(day.total_produzido_dia) || 0; // Produzido em caixas
+                const reprovadoPecas = Number(day.total_reprovado_dia) || 0; // Reprovado em peças
+
+                const produzidoPecas = produzidoCaixas * pecasPorCaixa; // Converter para peças
+                const aprovadoPecas = produzidoPecas - reprovadoPecas;
 
                 let percentAprovadoDia = 0;
-                if (produzido > 0) {
-                    percentAprovadoDia = ((aprovado / produzido) * 100).toFixed(2);
-                }
+                let percentReprovadoDia = 0; 
 
-                let percentReprovadoDia = 0; // CALCULATE % REPROVADO
-                if (produzido > 0) { // Calculate based on total produced pieces
-                    percentReprovadoDia = ((reprovado / produzido) * 100).toFixed(2);
+                if (produzidoPecas > 0) {
+                    percentAprovadoDia = (aprovadoPecas / produzidoPecas * 100).toFixed(2);
+                    percentReprovadoDia = (reprovadoPecas / produzidoPecas * 100).toFixed(2);
                 }
-
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${date}</td>
-                    <td>${meta}</td>
-                    <td>${produzido}</td>
-                    <td>${aprovado}</td>
-                    <td>${reprovado}</td>
+                    <td>${Math.round(meta * pecasPorCaixa).toLocaleString('pt-BR')}</td> <td>${Math.round(produzidoPecas).toLocaleString('pt-BR')}</td>
+                    <td>${Math.round(aprovadoPecas).toLocaleString('pt-BR')}</td>
+                    <td>${Math.round(reprovadoPecas).toLocaleString('pt-BR')}</td>
                     <td>${percentAprovadoDia}%</td>
-                    <td>${percentReprovadoDia}%</td> `;
+                    <td>${percentReprovadoDia}%</td>
+                </tr>
+            `;
                 tbody.appendChild(row);
             });
 
@@ -890,16 +941,16 @@ async function generateReport() {
 
         window.reportData = {
             summaryData: {
-                totalMeta: totalPiecesEstimatedOverall,
-                totalProduzido: totalPiecesProducedOverall,
-                totalAprovado: totalPiecesApprovedOverall,
-                totalReprovado: totalPiecesRejectedOverall,
+                totalMeta: totalPiecesEstimatedOverall, // Total de caixas estimadas
+                totalProduzido: totalPiecesProducedOverall, // Total de caixas produzidas
+                totalAprovado: totalPiecesApprovedOverall, // Total de peças aprovadas
+                totalReprovado: totalPiecesRejectedOverall, // Total de peças reprovadas
                 percentAprovados: overallPercentApproved,
                 percentReprovados: overallPercentRejected,
-                caixasEstimadas: totalBoxesEstimatedOverall,
-                caixasProduzidas: totalBoxesProducedOverall
+                caixasEstimadas: totalPiecesEstimatedOverall, // Corrigido para ser caixas
+                caixasProduzidas: totalPiecesProducedOverall // Corrigido para ser caixas
             },
-            detailedData: dailyReportData,
+            detailedData: dailyReportData, // Dados diários brutos (caixas para produzido, peças para reprovado)
             startDate: startDate,
             endDate: endDate
         };
@@ -920,10 +971,10 @@ async function generateReport() {
     }
 }
 
-// --- Report Download Functions ---
+// --- Funções de Download de Relatório ---
 
 /**
- * Downloads the report as a TXT file.
+ * Faz o download do relatório como um arquivo TXT.
  */
 function downloadReportTxt() {
     if (!window.reportData) {
@@ -941,22 +992,22 @@ function downloadReportTxt() {
     textContent += `Período: ${periodoTexto}\n\n`;
 
     textContent += `RESUMO DO PERÍODO:\n`;
-    textContent += `Peças Estimadas: ${summaryData.caixasEstimadas} cx (${summaryData.totalMeta} peças)\n`;
-    textContent += `Peças Produzidas: ${summaryData.caixasProduzidas} cx (${summaryData.totalProduzido} peças)\n`;
-    textContent += `Total Aprovados: ${summaryData.totalAprovado} peças (${summaryData.percentAprovados}%)\n`;
-    textContent += `Total Reprovados: ${summaryData.totalReprovado} peças (${summaryData.percentReprovados}%)\n\n`;
+    textContent += `Peças Estimadas: ${summaryData.caixasEstimadas.toLocaleString('pt-BR')} cx (${Math.round(summaryData.totalMeta * pecasPorCaixa).toLocaleString('pt-BR')} peças)\n`;
+    textContent += `Peças Produzidas: ${summaryData.caixasProduzidas.toLocaleString('pt-BR')} cx (${Math.round(summaryData.totalProduzido * pecasPorCaixa).toLocaleString('pt-BR')} peças)\n`;
+    textContent += `Total Aprovados: ${Math.round(summaryData.totalAprovado).toLocaleString('pt-BR')} peças (${summaryData.percentAprovados}%)\n`;
+    textContent += `Total Reprovados: ${Math.round(summaryData.totalReprovado).toLocaleString('pt-BR')} peças (${summaryData.percentReprovados}%)\n\n`;
 
     textContent += `DETALHES POR DIA:\n`;
-    textContent += `Data\tMeta(peças)\tProduzido(peças)\tAprovado(peças)\tReprovado(peças)\t% Aprovado\t% Reprovado\n`; // NEW HEADER
+    textContent += `Data\tMeta (peças)\tProduzido (peças)\tAprovado (peças)\tReprovado (peças)\t% Aprovado\t% Reprovado\n`;
     detailedData.forEach(day => {
         const date = new Date(day.report_date).toLocaleDateString('pt-BR');
-        const produzido = day.total_produzido_dia || 0;
-        const reprovado = day.total_reprovado_dia || 0;
-        const aprovado = produzido - reprovado;
-        const meta = day.meta_dia_total || 0;
-        let percentAprovadoDia = (produzido > 0) ? ((aprovado / produzido) * 100).toFixed(2) : 0;
-        let percentReprovadoDia = (produzido > 0) ? ((reprovado / produzido) * 100).toFixed(2) : 0; // NEW CALC
-        textContent += `${date}\t${meta}\t${produzido}\t${aprovado}\t${reprovado}\t${percentAprovadoDia}%\t${percentReprovadoDia}%\n`; // NEW DATA
+        const metaPecas = (Number(day.meta_dia_total) || 0) * pecasPorCaixa;
+        const produzidoPecas = (Number(day.total_produzido_dia) || 0) * pecasPorCaixa;
+        const reprovadoPecas = Number(day.total_reprovado_dia) || 0;
+        const aprovadoPecas = produzidoPecas - reprovadoPecas;
+        let percentAprovadoDia = (produzidoPecas > 0) ? (aprovadoPecas / produzidoPecas * 100).toFixed(2) : 0;
+        let percentReprovadoDia = (produzidoPecas > 0) ? (reprovadoPecas / produzidoPecas * 100).toFixed(2) : 0;
+        textContent += `${date}\t${Math.round(metaPecas).toLocaleString('pt-BR')}\t${Math.round(produzidoPecas).toLocaleString('pt-BR')}\t${Math.round(aprovadoPecas).toLocaleString('pt-BR')}\t${Math.round(reprovadoPecas).toLocaleString('pt-BR')}\t${percentAprovadoDia}%\t${percentReprovadoDia}%\n`;
     });
 
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
@@ -972,7 +1023,7 @@ function downloadReportTxt() {
 }
 
 /**
- * Downloads the report as an Excel (CSV) file.
+ * Faz o download do relatório como um arquivo Excel (CSV).
  */
 function downloadReportExcel() {
     if (!window.reportData) {
@@ -989,23 +1040,23 @@ function downloadReportExcel() {
     let csvContent = `RELATÓRIO DE PRODUÇÃO\n`;
     csvContent += `Período: ${periodoTexto}\n\n`;
 
-    // Summary section for CSV
+    // Seção de resumo para CSV
     csvContent += `RESUMO DO PERÍODO:\n`;
     csvContent += `"Peças Estimadas (cx)","Peças Estimadas (peças)","Peças Produzidas (cx)","Peças Produzidas (peças)","Total Aprovados (peças)","% Aprovados","Total Reprovados (peças)","% Reprovados"\n`;
-    csvContent += `"${summaryData.caixasEstimadas}","${summaryData.totalMeta}","${summaryData.caixasProduzidas}","${summaryData.totalProduzido}","${summaryData.totalAprovado}","${summaryData.percentAprovados}%","${summaryData.totalReprovado}","${summaryData.percentReprovados}%"\n\n`;
+    csvContent += `"${summaryData.caixasEstimadas.toLocaleString('pt-BR')}","${Math.round(summaryData.totalMeta * pecasPorCaixa).toLocaleString('pt-BR')}","${summaryData.caixasProduzidas.toLocaleString('pt-BR')}","${Math.round(summaryData.totalProduzido * pecasPorCaixa).toLocaleString('pt-BR')}","${Math.round(summaryData.totalAprovado).toLocaleString('pt-BR')}","${summaryData.percentAprovados}%","${Math.round(summaryData.totalReprovado).toLocaleString('pt-BR')}","${summaryData.percentReprovados}%"\n\n`;
 
-    // Detailed section for CSV
+    // Seção detalhada para CSV
     csvContent += `DETALHES POR DIA:\n`;
-    csvContent += `"Data","Meta (peças)","Produzido (peças)","Aprovado (peças)","Reprovado (peças)","% Aprovado","% Reprovado"\n`; // NEW HEADER
+    csvContent += `"Data","Meta (peças)","Produzido (peças)","Aprovado (peças)","Reprovado (peças)","% Aprovado","% Reprovado"\n`;
     detailedData.forEach(day => {
         const date = new Date(day.report_date).toLocaleDateString('pt-BR');
-        const produzido = day.total_produzido_dia || 0;
-        const reprovado = day.total_reprovado_dia || 0;
-        const aprovado = produzido - reprovado;
-        const meta = day.meta_dia_total || 0;
-        let percentAprovadoDia = (produzido > 0) ? ((aprovado / produzido) * 100).toFixed(2) : 0;
-        let percentReprovadoDia = (produzido > 0) ? ((reprovado / produzido) * 100).toFixed(2) : 0; // NEW CALC
-        csvContent += `"${date}","${meta}","${produzido}","${aprovado}","${reprovado}","${percentAprovadoDia}%","${percentReprovadoDia}%"\n`; // NEW DATA
+        const metaPecas = (Number(day.meta_dia_total) || 0) * pecasPorCaixa;
+        const produzidoPecas = (Number(day.total_produzido_dia) || 0) * pecasPorCaixa;
+        const reprovadoPecas = (Number(day.total_reprovado_dia) || 0); // Reprovado já vem em peças
+        const aprovadoPecas = produzidoPecas - reprovadoPecas;
+        let percentAprovadoDia = (produzidoPecas > 0) ? (aprovadoPecas / produzidoPecas * 100).toFixed(2) : 0;
+        let percentReprovadoDia = (produzidoPecas > 0) ? (reprovadoPecas / produzidoPecas * 100).toFixed(2) : 0;
+        csvContent += `"${date}","${Math.round(metaPecas).toLocaleString('pt-BR')}","${Math.round(produzidoPecas).toLocaleString('pt-BR')}","${Math.round(aprovadoPecas).toLocaleString('pt-BR')}","${Math.round(reprovadoPecas).toLocaleString('pt-BR')}","${percentAprovadoDia}%","${percentReprovadoDia}%"\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1020,11 +1071,8 @@ function downloadReportExcel() {
     showToast('Relatório Excel (CSV) gerado com sucesso!', 'success');
 }
 
-
-
-
 /**
- * Prints the report using the browser's print functionality.
+ * Imprime o relatório usando a funcionalidade de impressão do navegador.
  */
 function printReport() {
     if (!window.reportData) {
@@ -1038,7 +1086,7 @@ function printReport() {
     const endDateFormatted = new Date(endDate + 'T00:00:00').toLocaleDateString('pt-BR');
     const periodoTexto = startDate === endDate ? `${startDateFormatted}` : `${startDateFormatted} a ${endDateFormatted}`;
 
-    // Create a printable HTML content
+    // Criar conteúdo HTML imprimível
     let printContent = `
         <!DOCTYPE html>
         <html>
@@ -1058,7 +1106,7 @@ function printReport() {
                     border: 1px solid #ddd;
                     padding: 15px;
                     border-left: 4px solid #007bff;
-                    margin-bottom: 10px; /* for print layout */
+                    margin-bottom: 10px; /* para layout de impressão */
                 }
                 .summary-label {
                     font-weight: bold;
@@ -1074,7 +1122,7 @@ function printReport() {
                 th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
                 thead { background-color: #f8f9fa; }
                 @media print {
-                    /* Hide elements not relevant for print */
+                    /* Ocultar elementos não relevantes para impressão */
                     .download-options, .action-buttons-container { display: none; }
                 }
             </style>
@@ -1087,19 +1135,19 @@ function printReport() {
             <div class="summary-grid">
                 <div class="summary-item">
                     <div class="summary-label">Peças Estimadas:</div>
-                    <div class="summary-value">${summaryData.caixasEstimadas} cx (${summaryData.totalMeta} peças)</div>
+                    <div class="summary-value">${Math.round(summaryData.totalMeta).toLocaleString('pt-BR')} cx (${Math.round(summaryData.totalMeta * pecasPorCaixa).toLocaleString('pt-BR')} peças)</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Peças Produzidas:</div>
-                    <div class="summary-value">${summaryData.caixasProduzidas} cx (${summaryData.totalProduzido} peças)</div>
+                    <div class="summary-value">${Math.round(summaryData.totalProduzido).toLocaleString('pt-BR')} cx (${Math.round(summaryData.totalProduzido * pecasPorCaixa).toLocaleString('pt-BR')} peças)</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Total Aprovados:</div>
-                    <div class="summary-value">${summaryData.totalAprovado} peças</div>
+                    <div class="summary-value">${Math.round(summaryData.totalAprovado).toLocaleString('pt-BR')} peças</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Total Reprovados:</div>
-                    <div class="summary-value">${summaryData.totalReprovado} peças</div>
+                    <div class="summary-value">${Math.round(summaryData.totalReprovado).toLocaleString('pt-BR')} peças</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">% Aprovados:</div>
@@ -1121,19 +1169,36 @@ function printReport() {
                         <th>Aprovado (peças)</th>
                         <th>Reprovado (peças)</th>
                         <th>% Aprovado</th>
-                        <th>% Reprovado</th> </tr>
+                        <th>% Reprovado</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    ${detailedData.map(day => `
-                        <tr>
-                            <td>${new Date(day.report_date).toLocaleDateString('pt-BR')}</td>
-                            <td>${day.meta_dia_total || 0}</td>
-                            <td>${day.total_produzido_dia || 0}</td>
-                            <td>${(day.total_produzido_dia || 0) - (day.total_reprovado_dia || 0)}</td>
-                            <td>${day.total_reprovado_dia || 0}</td>
-                            <td>${((day.total_produzido_dia || 0) > 0) ? (((day.total_produzido_dia || 0) - (day.total_reprovado_dia || 0)) / (day.total_produzido_dia || 0) * 100).toFixed(2) : '0.00'}%</td>
-                            <td>${((day.total_produzido_dia || 0) > 0) ? ((day.total_reprovado_dia || 0) / (day.total_produzido_dia || 0) * 100).toFixed(2) : '0.00'}%</td> </tr>
-                    `).join('')}
+                    ${detailedData.map(day => {
+                        const date = new Date(day.report_date).toLocaleDateString('pt-BR');
+                        const metaPecas = (Number(day.meta_dia_total) || 0) * pecasPorCaixa;
+                        const produzidoPecas = (Number(day.total_produzido_dia) || 0) * pecasPorCaixa;
+                        const reprovadoPecas = (Number(day.total_reprovado_dia) || 0); // Reprovado já vem em peças
+                        const aprovadoPecas = produzidoPecas - reprovadoPecas;
+
+                        let percentAprovadoDia = 0;
+                        let percentReprovadoDia = 0; 
+                        if (produzidoPecas > 0) {
+                            percentAprovadoDia = (aprovadoPecas / produzidoPecas * 100).toFixed(2);
+                            percentReprovadoDia = (reprovadoPecas / produzidoPecas * 100).toFixed(2);
+                        }
+
+                        return `
+                            <tr>
+                                <td>${date}</td>
+                                <td>${Math.round(metaPecas).toLocaleString('pt-BR')}</td>
+                                <td>${Math.round(produzidoPecas).toLocaleString('pt-BR')}</td>
+                                <td>${Math.round(aprovadoPecas).toLocaleString('pt-BR')}</td>
+                                <td>${Math.round(reprovadoPecas).toLocaleString('pt-BR')}</td>
+                                <td>${percentAprovadoDia}%</td>
+                                <td>${percentReprovadoDia}%</td>
+                            </tr>
+                        `;
+                    }).join('')}
                 </tbody>
             </table>
         </body>
@@ -1158,26 +1223,59 @@ function printReport() {
 // ===============================================
 
 /**
- * Busca e exibe os projetos do backend.
+ * Busca e exibe os projetos do backend, com opção de filtro por nome.
+ * Se um termo de busca for fornecido, os projetos que correspondem serão movidos para o topo.
+ * @param {string} [searchTerm=''] - Termo de busca para filtrar projetos por nome.
  */
-async function fetchProjects() {
+async function fetchProjects(searchTerm = '') {
     try {
+        // Sempre buscar todos os projetos do backend.
         const response = await fetch(`${API_BASE_URL}/projetos`);
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Erro ao buscar projetos. Resposta não JSON.' }));
             throw new Error(errorData.error || 'Erro ao buscar projetos.');
         }
-        const projects = await response.json();
+        let allProjects = await response.json(); // Pega todos os projetos do backend
 
         const projectsContainer = document.getElementById('projectsContainer');
-        projectsContainer.innerHTML = '';
+        projectsContainer.innerHTML = ''; // Limpa o container antes de renderizar
 
-        if (projects.length === 0) {
+        if (allProjects.length === 0) {
             projectsContainer.innerHTML = '<p class="no-projects">Nenhum projeto encontrado. Cadastre um novo projeto na aba "Cadastro de Projetos".</p>';
             return;
         }
 
-        projects.forEach(project => {
+        let projectsToDisplay = [];
+
+        // Garanta que searchTerm é uma string antes de chamar trim()
+        const currentSearchTerm = String(searchTerm).trim();
+
+        // Se houver um termo de busca, reordene os projetos localmente
+        if (currentSearchTerm !== '') {
+            const lowerCaseSearchTerm = currentSearchTerm.toLowerCase();
+            const matchingProjects = [];
+            const otherProjects = [];
+
+            allProjects.forEach(project => {
+                if (project.nome.toLowerCase().includes(lowerCaseSearchTerm)) {
+                    matchingProjects.push(project);
+                } else {
+                    otherProjects.push(project);
+                }
+            });
+
+            projectsToDisplay = matchingProjects.concat(otherProjects);
+
+            if (matchingProjects.length === 0) {
+                 projectsContainer.innerHTML = `<p class="no-projects">Nenhum projeto encontrado com o nome "${currentSearchTerm}".</p>`;
+                 return;
+            }
+        } else {
+            // Se não houver termo de busca, exibe todos os projetos na ordem original do backend
+            projectsToDisplay = allProjects;
+        }
+
+        projectsToDisplay.forEach(project => {
             const projectCard = createProjectCard(project);
             projectsContainer.appendChild(projectCard);
         });
@@ -1188,354 +1286,343 @@ async function fetchProjects() {
     }
 }
 
-/**
- * Cria um card de projeto para exibição.
- * @param {Object} project - Dados do projeto, incluindo `percentuaisPorEtapa` e `atrasosPorEtapa`.
- * @returns {HTMLElement} Elemento do card do projeto.
- */
-function createProjectCard(project) {
-    const card = document.createElement("div");
-    card.className = "project-card";
-    card.dataset.projectId = project.id;
+// Função para criar um card de projeto com percentual e status atualizados
+function createProjectCard(projeto) {
+    const card = document.createElement('div');
+    card.className = 'project-card';
+    card.dataset.projectId = projeto.id;
 
-    // Informações do projeto
-    const projectInfo = document.createElement("div");
-    projectInfo.className = "project-info";
+    // Seção de informações do projeto
+    const infoSection = document.createElement('div');
+    infoSection.className = 'project-info';
 
-    const projectName = document.createElement("div");
-    projectName.className = "project-info-name";
-    projectName.textContent = project.nome;
+    const projectName = document.createElement('div');
+    projectName.className = 'project-info-name';
+    projectName.textContent = projeto.nome;
 
-    const projectDetails = document.createElement("div");
-    projectDetails.className = "project-info-details";
+    const projectDetails = document.createElement('div');
+    projectDetails.className = 'project-info-details';
 
-    // Tentar parsear a equipe JSON
-    let equipe = [];
+    // Formatação das datas
+    const dataInicioProjeto = projeto.data_inicio ? formatDate(projeto.data_inicio) : 'Não definida';
+    const dataFimProjeto = projeto.data_fim ? formatDate(projeto.data_fim) : 'Não definida';
+
+    // Extrair equipe do JSON
+    let equipeText = '';
     try {
-        if (project.equipe_json) {
-            equipe = JSON.parse(project.equipe_json);
+        if (projeto.equipe_json) {
+            const equipe = JSON.parse(projeto.equipe_json);
+            equipeText = Array.isArray(equipe) ? equipe.join(', ') : equipe;
         }
     } catch (e) {
-        console.error("Erro ao parsear equipe JSON:", e);
+        console.error('Erro ao parsear equipe JSON:', e);
+        equipeText = projeto.equipe_json || '';
     }
 
     projectDetails.innerHTML = `
-        <strong>Líder:</strong> ${project.lider}<br>
-        <strong>Equipe:</strong> ${Array.isArray(equipe) ? equipe.join(", ") : "Não definida"}<br>
-        <strong>Início:</strong> ${project.data_inicio ? new Date(project.data_inicio).toLocaleDateString("pt-BR") : "Não definido"}<br>
-        <strong>Entrega:</strong> ${project.data_fim ? new Date(project.data_fim).toLocaleDateString("pt-BR") : "Não definido"}
+        <strong>Líder:</strong> ${projeto.lider}<br>
+        <strong>Equipe:</strong> ${equipeText}<br>
+        <strong>Início:</strong> ${dataInicioProjeto}<br>
+        <strong>Entrega:</strong> ${dataFimProjeto}
     `;
 
-    projectInfo.appendChild(projectName);
-    projectInfo.appendChild(projectDetails);
+    infoSection.appendChild(projectName);
+    infoSection.appendChild(projectDetails);
 
-    // Stepper (barra de progresso)
-    const stepperWrapper = document.createElement("div");
-    stepperWrapper.className = "project-stepper-wrapper";
+    // Seção do stepper (barra de progresso)
+    const stepperWrapper = document.createElement('div');
+    stepperWrapper.className = 'project-stepper-wrapper';
 
-    const stepperText = document.createElement("div");
-    stepperText.className = "stepper-text";
-    stepperText.innerHTML = `<strong>Progresso por Etapa:</strong>`; // Texto ajustado
+    const stepperContainer = document.createElement('div');
+    stepperContainer.className = 'stepper-container';
 
-    const stepperContainer = document.createElement("div");
-    stepperContainer.className = "stepper-container";
+    // --- MODIFICAÇÃO CHAVE AQUI: Iterar sobre etapas customizadas ---
+    if (projeto.customEtapas && projeto.customEtapas.length > 0) {
+        projeto.customEtapas.forEach((etapa, index) => {
+            const percentual = projeto.percentuaisPorEtapa[etapa.id] || 0;
+            const stageStatus = projeto.statusPorEtapa[etapa.id] || 'pendente';
 
-    // Criar os 7 passos do stepper
-    for (let i = 1; i <= 7; i++) {
-        const step = document.createElement("div");
-        step.className = "step";
+            const step = document.createElement('div');
+            step.className = 'step';
+            
+            // Lógica atualizada para colorir a bolinha
+            if (percentual === 100) {
+                step.classList.add('completed');
+            } else if (stageStatus === 'atrasado') {
+                step.classList.add('delayed');
+            } else if (stageStatus === 'andamento' || percentual > 0) {
+                step.classList.add('active');
+            }
 
-        // Obter o percentual e status de atraso da etapa atual
-        const percentage = project.percentuaisPorEtapa ? (project.percentuaisPorEtapa[i] !== undefined ? project.percentuaisPorEtapa[i] : 0) : 0;
-        const isDelayed = project.atrasosPorEtapa ? (project.atrasosPorEtapa[i] === true) : false;
-        const displayPercentage = Math.round(percentage);
+            step.textContent = `${percentual}%`;
 
-        // Exibir a porcentagem dentro da bolinha
-        step.textContent = `${displayPercentage}%`;
+            // NOVO: Adicionar Data de Início da Etapa
+            const stepStartDate = document.createElement('div');
+            stepStartDate.className = 'step-start-date';
+            stepStartDate.textContent = etapa.data_inicio ? formatDate(etapa.data_inicio) : 'Sem Início'; // Formata a data
+            step.appendChild(stepStartDate);
 
-        // Add classes based on percentage and delay status
-        // Prioritize delay status
-        if (isDelayed && percentage < 100) { // Check delay first, but only if not completed
-             step.classList.add("delayed"); // Red
-        } else if (percentage === 100) {
-            step.classList.add("completed"); // Green
-        } else if (percentage > 0) { // In progress, not delayed, not 100%
-            step.classList.add("active"); // Blue
-        } else {
-            // Percentage is 0 and not delayed: remains default grey
-        }
+            // NOVO: Adicionar Data de Fim da Etapa (reutilizando step-date)
+            const stepEndDate = document.createElement('div');
+            stepEndDate.className = 'step-date'; // Mantém a classe existente
+            stepEndDate.textContent = etapa.data_fim ? formatDate(etapa.data_fim) : 'Sem Fim'; // Formata a data
+            step.appendChild(stepEndDate);
 
-        // Adicionar rótulo da etapa
-        const stepLabel = document.createElement("div");
-        stepLabel.className = "step-label";
+            const stepLabel = document.createElement('div');
+            stepLabel.className = 'step-label';
+            stepLabel.textContent = etapa.nome_etapa; // Usar nome_etapa da etapa customizada
 
-        switch (i) {
-            case 1: stepLabel.textContent = "Projeto"; break;
-            case 2: stepLabel.textContent = "Compras"; break;
-            case 3: stepLabel.textContent = "Usinagem"; break;
-            case 4: stepLabel.textContent = "Montagem"; break;
-            case 5: stepLabel.textContent = "Elétrica"; break;
-            case 6: stepLabel.textContent = "Testes"; break;
-            case 7: stepLabel.textContent = "Concluído"; break;
-        }
+            step.appendChild(stepLabel);
+            stepperContainer.appendChild(step);
 
-        step.appendChild(stepLabel);
+            // Adicionar evento de clique à "bolinha" da etapa para abrir o modal de sub-etapas
+            step.addEventListener('click', () => {
+                openSubEtapasModal(projeto.id, etapa.id); // Passar o ID da etapa customizada
+            });
 
-        // Adicionar datas de início/fim da etapa acima do step
-        const stepDate = document.createElement("div");
-        stepDate.className = "step-date";
-
-        // Obter datas de início e fim da etapa
-        const dataFim = project[`data_fim_etapa${i}`];
-
-        if (dataFim) {
-            stepDate.textContent = formatDate(dataFim, false);
-        }
-
-        step.appendChild(stepDate);
-
-        // Adicionar evento de clique para mostrar sub-etapas
-        step.addEventListener("click", () => {
-            openSubEtapasModal(project.id, i);
+            // Adicionar linha conectora entre os steps (exceto para o último)
+            if (index < projeto.customEtapas.length - 1) {
+                const connector = document.createElement('div');
+                connector.className = 'step-connector';
+                stepperContainer.appendChild(connector);
+            }
         });
-
-        stepperContainer.appendChild(step);
+    } else {
+        // Mensagem se não houver etapas customizadas
+        const noStagesMsg = document.createElement('p');
+        noStagesMsg.textContent = 'Nenhuma etapa definida para este projeto.';
+        noStagesMsg.style.textAlign = 'center';
+        noStagesMsg.style.color = 'var(--text-muted-color)';
+        stepperContainer.appendChild(noStagesMsg);
     }
+    // --- FIM DA MODIFICAÇÃO CHAVE ---
 
-    stepperWrapper.appendChild(stepperText);
     stepperWrapper.appendChild(stepperContainer);
 
-    // Botões de ação
-    const projectActions = document.createElement("div");
-    projectActions.className = "project-actions";
+    // Seção de ações
+    const actionsSection = document.createElement('div');
+    actionsSection.className = 'project-actions';
 
-    const viewButton = document.createElement("button");
-    viewButton.className = "view-btn";
-    viewButton.innerHTML = '<i class="fas fa-eye"></i> Detalhes';
-    viewButton.addEventListener('click', () => openProjectDetailsModal(project.id));
+    // Botão de detalhes
+    const detailsButton = document.createElement('button');
+    detailsButton.className = 'action-button info';
+    detailsButton.innerHTML = '<i class="fas fa-info-circle"></i> Detalhes';
+    detailsButton.addEventListener('click', () => openProjectDetailsModal(projeto.id));
 
+    // Botão de editar (visível apenas para diretoria e coordenador)
     const editButton = document.createElement('button');
-    editButton.className = 'edit-btn';
+    editButton.className = 'action-button primary';
     editButton.innerHTML = '<i class="fas fa-edit"></i> Editar';
-    editButton.addEventListener('click', () => openEditProjectModal(project.id));
+    editButton.addEventListener('click', () => openEditProjectModal(projeto.id));
 
+    // Botão de excluir (visível apenas para diretoria)
     const deleteButton = document.createElement('button');
-    deleteButton.className = 'delete-btn';
+    deleteButton.className = 'action-button danger';
     deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i> Excluir';
-    deleteButton.addEventListener('click', () => openDeleteConfirmModal(project.id, project.nome));
+    deleteButton.addEventListener('click', () => openDeleteConfirmModal(projeto.id, projeto.nome));
 
-    projectActions.appendChild(viewButton);
-    // Apply role-based visibility to edit and delete buttons
-    if (['diretoria', 'coordenador', 'lider'].includes(currentUserRole)) { // Edit
-        projectActions.appendChild(editButton);
+    // Adicionar botões com base nas permissões
+    actionsSection.appendChild(detailsButton);
+    
+    const userRole = localStorage.getItem('userRole');
+    if (['diretoria', 'coordenador'].includes(userRole)) {
+        actionsSection.appendChild(editButton);
     }
-    if (['diretoria'].includes(currentUserRole)) { // Delete
-        projectActions.appendChild(deleteButton);
+    
+    if (userRole === 'diretoria') {
+        actionsSection.appendChild(deleteButton);
     }
 
     // Montar o card completo
-    card.appendChild(projectInfo);
+    card.appendChild(infoSection);
     card.appendChild(stepperWrapper);
-    card.appendChild(projectActions);
+    card.appendChild(actionsSection);
 
     return card;
 }
 
 /**
- * Verifica se um projeto está atrasado com base nas datas definidas.
- * @param {Object} project - Dados do projeto.
- * @returns {boolean} True se o projeto estiver atrasado, false caso contrário.
- */
-function checkIfProjectDelayed(project) {
-    // Se o projeto já estiver concluído (etapa 7), não está atrasado
-    if (parseInt(project.etapa_atual) === 7) {
-        return false;
-    }
-
-    const today = new Date();
-
-    // Verificar se a data de entrega já passou (considerando o fim do dia)
-    if (project.data_fim) {
-        const dataFim = new Date(project.data_fim);
-        // Ajustar para o final do dia (23:59:59.999)
-        dataFim.setHours(23, 59, 59, 999);
-
-        if (today > dataFim) {
-            return true;
-        }
-    }
-
-    // Verificar se a data de fim da etapa atual já passou (considerando o fim do dia)
-    const dataFimEtapaAtual = project[`data_fim_etapa${project.etapa_atual}`];
-    if (dataFimEtapaAtual) {
-        const dataFim = new Date(dataFimEtapaAtual);
-        // Ajustar para o final do dia (23:59:59.999)
-        dataFim.setHours(23, 59, 59, 999);
-
-        if (today > dataFim) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Abre o modal de detalhes do projeto.
- * @param {number} projectId - ID do projeto.
+ * Abre o modal de detalhes do projeto
+ * @param {number} projectId - ID do projeto
  */
 async function openProjectDetailsModal(projectId) {
     try {
         const response = await fetch(`${API_BASE_URL}/projetos/${projectId}`);
         if (!response.ok) {
-            throw new Error('Erro ao buscar detalhes do projeto.');
+            throw new Error('Erro ao buscar detalhes do projeto');
         }
+        
+        const projeto = await response.json();
+        
+        const modal = document.getElementById('projectDetailsModal');
+        const projectDetailsContent = document.getElementById('projectDetailsContent');
+        projectDetailsContent.innerHTML = ''; // Limpa o conteúdo anterior
 
-        const project = await response.json();
-
-        const detailsContent = document.getElementById('projectDetailsContent');
-        detailsContent.innerHTML = '';
-
-        // Criar conteúdo de detalhes
-        const detailsHTML = `
-            <div class="project-details">
-                <h3>${project.nome}</h3>
-                <div class="details-section">
-                    <h4>Informações Gerais</h4>
-                    <p><strong>Líder:</strong> ${project.lider}</p>
-                    <p><strong>Etapa Atual:</strong> ${getEtapaNome(project.etapa_atual)} (${project.etapa_atual}/7)</p>
-                    <p><strong>Percentual Concluido:</strong> ${parseFloat(project.percentual_concluido).toFixed(2)}%</p>
-                    <p><strong>Data de Início:</strong> ${project.data_inicio ? new Date(project.data_inicio).toLocaleDateString('pt-BR') : 'Não definida'}</p>
-                    <p><strong>Data de Entrega:</strong> ${project.data_fim ? new Date(project.data_fim).toLocaleDateString('pt-BR') : 'Não definida'}</p>
+        // Extrair equipe do JSON
+        let equipeText = '';
+        try {
+            if (projeto.equipe_json) {
+                const equipe = JSON.parse(projeto.equipe_json);
+                equipeText = Array.isArray(equipe) ? equipe.join(', ') : equipe;
+            }
+        } catch (e) {
+            console.error('Erro ao parsear equipe JSON:', e);
+            equipeText = projeto.equipe_json || '';
+        }
+        
+        // Determinar a classe CSS para o status geral do projeto
+        let statusClass = '';
+        switch (projeto.status) {
+            case 'pendente':
+                statusClass = 'status-pending';
+                break;
+            case 'andamento':
+                statusClass = 'status-in-progress';
+                break;
+            case 'atrasado':
+                statusClass = 'status-delayed';
+                break;
+            case 'concluído':
+                statusClass = 'status-completed';
+                break;
+            default:
+                statusClass = '';
+        }
+        
+        projectDetailsContent.innerHTML = `
+            <div class="project-details-container">
+                <div class="project-details-header">
+                    <h3>${projeto.nome}</h3>
                 </div>
-
-                <div class="details-section">
-                    <h4>Equipe</h4>
-                    <p>${getEquipeFormatada(project.equipe_json)}</p>
-                </div>
-
-                <div class="details-section">
-                    <h4>Cronograma de Etapas</h4>
-                    <table class="details-table">
-                        <thead>
-                            <tr>
-                                <th>Etapa</th>
-                                <th>Data de Início</th>
-                                <th>Data de Fim</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${getCronogramaEtapasHTML(project)}
-                        </tbody>
-                    </table>
+                
+                <div class="project-details-sections">
+                    <div class="project-details-section">
+                        <h4>Informações Gerais</h4>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Líder:</span>
+                                <span class="info-value">${projeto.lider}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Percentual Concluído:</span>
+                                <span class="info-value">${projeto.percentual_concluido}%</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Data de Início:</span>
+                                <span class="info-value">${projeto.data_inicio ? formatDate(projeto.data_inicio) : 'Não definida'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Data de Entrega:</span>
+                                <span class="info-value">${projeto.data_fim ? formatDate(projeto.data_fim) : 'Não definida'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Status:</span>
+                                <span class="info-value ${statusClass}">${projeto.status.toUpperCase()}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="project-details-section">
+                        <h4>Equipe</h4>
+                        <p>${equipeText || 'Nenhum membro definido'}</p>
+                    </div>
+                    
+                    <div class="project-details-section">
+                        <h4>Cronograma de Etapas</h4>
+                        <table class="details-table">
+                            <thead>
+                                <tr>
+                                    <th>Ordem</th>
+                                    <th>Etapa</th>
+                                    <th>Data de Início</th>
+                                    <th>Data de Fim</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="etapasTableBody">
+                                ${getEtapasTableRows(projeto)}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         `;
-
-        detailsContent.innerHTML = detailsHTML;
-
-        // Exibir o modal
-        const modal = document.getElementById('projectDetailsModal');
+        
         modal.style.display = 'flex';
+        modal.querySelector('.modal-content').classList.add('show'); // Adiciona classe 'show'
+        
+        // Adicionar event listener ao botão 'Fechar' deste modal específico
+        const closeBtn = modal.querySelector('.close-modal-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                closeModal('projectDetailsModal');
+            });
+        }
+        const closeSpan = modal.querySelector('.close-modal');
+        if (closeSpan) {
+            closeSpan.addEventListener('click', () => {
+                closeModal('projectDetailsModal');
+            });
+        }
 
     } catch (error) {
         console.error('Erro ao abrir detalhes do projeto:', error);
-        showError('Erro ao abrir detalhes do projeto: ' + error.message);
+        showError('Erro ao carregar detalhes do projeto: ' + error.message);
     }
 }
 
-/**
- * Obtém o nome da etapa com base no número.
- * @param {number} etapaNumero - Número da etapa.
- * @returns {string} Nome da etapa.
- */
-function getEtapaNome(etapaNumero) {
-    switch (parseInt(etapaNumero)) {
-        case 1: return 'Projeto';
-        case 2: return 'Compras';
-        case 3: return 'Usinagem';
-        case 4: return 'Montagem';
-        case 5: return 'Elétrica';
-        case 6: return 'Testes';
-        case 7: return 'Concluído';
-        default: return 'Desconhecida';
-    }
-}
-
-/**
- * Formata a equipe do projeto para exibição.
- * @param {string} equipeJson - JSON da equipe.
- * @returns {string} Equipe formatada.
- */
-function getEquipeFormatada(equipeJson) {
-    if (!equipeJson) return 'Nenhum membro definido';
-
-    try {
-        const equipe = JSON.parse(equipeJson);
-        if (Array.isArray(equipe) && equipe.length > 0) {
-            return equipe.join(', ');
-        }
-    } catch (e) {
-        console.error('Erro ao parsear equipe JSON:', e);
+// Função auxiliar para gerar as linhas da tabela de etapas nos detalhes
+function getEtapasTableRows(projeto) {
+    let rows = '';
+    
+    if (!projeto.customEtapas || projeto.customEtapas.length === 0) {
+        return '<tr><td colspan="5" style="text-align: center;">Nenhuma etapa definida para este projeto.</td></tr>';
     }
 
-    return 'Nenhum membro definido';
-}
-
-/**
- * Gera o HTML do cronograma de etapas para o modal de detalhes.
- * @param {Object} project - Dados do projeto.
- * @returns {string} HTML do cronograma.
- */
-function getCronogramaEtapasHTML(project) {
-    let html = '';
-    const etapaAtual = parseInt(project.etapa_atual);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    for (let i = 1; i <= 7; i++) {
-        const dataInicio = project[`data_inicio_etapa${i}`];
-        const dataFim = project[`data_fim_etapa${i}`];
-
-        let status = '';
+    projeto.customEtapas.forEach(etapa => {
+        const dataInicio = etapa.data_inicio ? formatDate(etapa.data_inicio, true) : 'Não definida';
+        const dataFim = etapa.data_fim ? formatDate(etapa.data_fim, true) : 'Não definida';
+        
+        let status = projeto.statusPorEtapa ? projeto.statusPorEtapa[etapa.id] : 'Pendente';
         let statusClass = '';
-
-        if (i === 7 && etapaAtual === 7) {
-            status = 'Concluída';
-            statusClass = 'status-completed';
-        } else if (i < etapaAtual) {
-            status = 'Concluída';
-            statusClass = 'status-completed';
-        } else if (i === etapaAtual) {
-            status = 'Em andamento';
-            statusClass = 'status-active';
-
-            if (dataFim) {
-                const etapaFimObj = new Date(dataFim);
-                etapaFimObj.setHours(23,59,59,999);
-                if (today > etapaFimObj) {
-                    status = 'Em andamento (Atrasada)';
-                    statusClass = 'status-delayed';
-                }
-            }
-        } else {
-            status = 'Pendente';
-            statusClass = 'status-pending';
+        
+        switch (status) {
+            case 'pendente':
+                statusClass = 'status-pending';
+                status = 'Pendente';
+                break;
+            case 'andamento':
+                statusClass = 'status-in-progress';
+                status = 'Em Andamento';
+                break;
+            case 'atrasado':
+                statusClass = 'status-delayed';
+                status = 'Atrasado';
+                break;
+            case 'concluído':
+                statusClass = 'status-completed';
+                status = 'Concluído';
+                break;
+            default:
+                statusClass = 'status-pending';
+                status = 'Pendente';
         }
-
-        html += `
+        
+        rows += `
             <tr>
-                <td>${i} - ${getEtapaNome(i)}</td>
-                <td>${dataInicio ? formatDate(dataInicio, true) : 'Não definida'}</td>
-                <td>${dataFim ? formatDate(dataFim, true) : 'Não definida'}</td>
-                <td class="${statusClass}">${status}</td>
+                <td>${etapa.ordem}</td>
+                <td>${etapa.nome_etapa}</td>
+                <td>${dataInicio}</td>
+                <td>${dataFim}</td>
+                <td><span class="${statusClass}">${status}</span></td>
             </tr>
         `;
-    }
-
-    return html;
+    });
+    
+    return rows;
 }
+
+
 /**
  * Abre o modal de edição de projeto.
  * @param {number} projectId - ID do projeto.
@@ -1553,7 +1640,7 @@ async function openEditProjectModal(projectId) {
         document.getElementById('editProjectId').value = project.id;
         document.getElementById('editProjetoNome').value = project.nome;
         document.getElementById('editProjetoLider').value = project.lider;
-        document.getElementById('editProjetoEtapa').value = project.etapa_atual;
+        document.getElementById('editProjetoEquipe').value = project.equipe_json ? JSON.parse(project.equipe_json).join(', ') : '';
 
         const editDataInicioInput = document.getElementById('editProjetoDataInicio');
         const editDataFimInput = document.getElementById('editProjetoDataFim');
@@ -1584,56 +1671,30 @@ async function openEditProjectModal(projectId) {
             editDataFimInput.value = '';
         }
 
-        // Equipe
-        let equipe = [];
-        try {
-            if (project.equipe_json) {
-                equipe = JSON.parse(project.equipe_json);
-                if (Array.isArray(equipe)) {
-                    document.getElementById('editProjetoEquipe').value = equipe.join(', ');
-                }
-            }
-        } catch (e) {
-            console.error('Erro ao parsear equipe JSON:', e);
+        // --- MODIFICAÇÃO CHAVE: Carregar e renderizar etapas customizadas ---
+        const editEtapasContainer = document.getElementById('editEtapasContainer');
+        editEtapasContainer.innerHTML = ''; // Limpar etapas antigas
+
+        if (project.customEtapas && project.customEtapas.length > 0) {
+            // Guarda os IDs das etapas originais para comparação posterior
+            editEtapasContainer.dataset.originalEtapaIds = JSON.stringify(project.customEtapas.map(e => e.id));
+
+            project.customEtapas.sort((a, b) => a.ordem - b.ordem).forEach((etapa) => {
+                // Ao carregar, cada etapa existente já terá um dataset.etapaId
+                addDynamicEtapaField('editEtapasContainer', 'edit_', etapa);
+            });
+        } else {
+            editEtapasContainer.dataset.originalEtapaIds = JSON.stringify([]); // Nenhuma etapa original
+            // Se não houver etapas, adicione uma etapa padrão vazia para começar
+            addDynamicEtapaField('editEtapasContainer', 'edit_');
         }
-
-        // Datas das etapas
-        for (let i = 1; i <= 7; i++) {
-            const dataInicio = project[`data_inicio_etapa${i}`];
-            const dataFim = project[`data_fim_etapa${i}`];
-
-            const editDataInicioEtapaInput = document.getElementById(`editDataInicioEtapa${i}`);
-            const editDataFimEtapaInput = document.getElementById(`editDataFimEtapa${i}`);
-
-            // As datas das etapas não são editáveis para o perfil 'lider' neste novo requisito
-            if (['lider'].includes(currentUserRole)) {
-                editDataInicioEtapaInput.disabled = true;
-                editDataInicioEtapaInput.classList.add('disabled-field');
-                editDataFimEtapaInput.disabled = true;
-                editDataFimEtapaInput.classList.add('disabled-field');
-            } else {
-                editDataInicioEtapaInput.disabled = false;
-                editDataInicioEtapaInput.classList.remove('disabled-field');
-                editDataFimEtapaInput.disabled = false;
-                editDataFimEtapaInput.classList.remove('disabled-field');
-            }
-
-            if (dataInicio) {
-                editDataInicioEtapaInput.value = dataInicio.replace(' ', 'T').slice(0, 16);
-            } else {
-                editDataInicioEtapaInput.value = '';
-            }
-
-            if (dataFim) {
-                editDataFimEtapaInput.value = dataFim.replace(' ', 'T').slice(0, 16);
-            } else {
-                editDataFimEtapaInput.value = '';
-            }
-        }
+        updateEtapaOrder('editEtapasContainer'); // Garante que a ordem visual esteja correta
+        // --- FIM DA MODIFICAÇÃO CHAVE ---
 
         // Exibir o modal
         const modal = document.getElementById('editProjectModal');
         modal.style.display = 'flex';
+        modal.querySelector('.modal-content').classList.add('show'); // Adiciona classe 'show'
 
     } catch (error) {
         console.error('Erro ao abrir edição do projeto:', error);
@@ -1652,14 +1713,12 @@ async function saveProjectChanges(event) {
     const nome = document.getElementById('editProjetoNome').value;
     const lider = document.getElementById('editProjetoLider').value;
     const equipe = document.getElementById('editProjetoEquipe').value;
-    const etapa_atual = document.getElementById('editProjetoEtapa').value;
 
     let data_inicio = document.getElementById('editProjetoDataInicio').value;
     let data_fim = document.getElementById('editProjetoDataFim').value;
 
     // Se o usuário for 'lider', as datas de início e fim do projeto não devem ser alteradas
     if (['lider'].includes(currentUserRole)) {
-        // Re-fetch original project data to ensure these fields are not overwritten
         try {
             const originalProjectResponse = await fetch(`${API_BASE_URL}/projetos/${projectId}`);
             if (originalProjectResponse.ok) {
@@ -1668,63 +1727,101 @@ async function saveProjectChanges(event) {
                 data_fim = originalProject.data_fim ? originalProject.data_fim.split('T')[0] : '';
             }
         } catch (error) {
-            console.warn('Could not retrieve original project dates for leader role, proceeding with current form values:', error);
+            console.warn('Não foi possível recuperar as datas originais do projeto para o perfil de líder, prosseguindo com os valores atuais do formulário:', error);
         }
     }
 
-    const datas = {};
-    for (let i = 1; i <= 7; i++) {
-        const dataInicioInput = document.getElementById(`editDataInicioEtapa${i}`);
-        const dataFimInput = document.getElementById(`editDataFimEtapa${i}`);
-
-        // Para o líder, as datas das etapas não devem ser alteradas. Pega o valor original.
-        if (['lider'].includes(currentUserRole)) {
-            // Se o campo estiver desabilitado, o valor no DOM é o que foi preenchido originalmente.
-            // O backend deve ter a lógica para ignorar estas datas para 'lider' também, se for crítica.
-            datas[`data_inicio_etapa${i}`] = dataInicioInput.value;
-            datas[`data_fim_etapa${i}`] = dataFimInput.value;
-        } else {
-            // Para outros papéis, usa os valores do formulário
-            if (dataInicioInput.value) {
-                datas[`data_inicio_etapa${i}`] = dataInicioInput.value;
-            }
-
-            if (dataFimInput.value) {
-                datas[`data_fim_etapa${i}`] = dataFimInput.value;
-            }
-        }
-    }
-
-    // Validar campos obrigatórios
-    if (!nome || !lider || !etapa_atual) {
-        showError('Nome, líder e etapa atual são obrigatórios.');
+    // Validar campos obrigatórios do projeto principal
+    if (!nome || !lider) {
+        showError('Nome e líder do projeto são obrigatórios.');
         return;
     }
 
     try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}`, {
+        // 1. Atualizar o projeto principal
+        const projectUpdateResponse = await authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 nome,
                 lider,
                 equipe,
-                etapa_atual,
-                data_inicio,
-                data_fim,
-                ...datas
-            }),
+                data_inicio: data_inicio || null,
+                data_fim: data_fim || null,
+            })
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido ao atualizar projeto.' }));
+        if (!projectUpdateResponse.ok) {
+            const errorData = await projectUpdateResponse.json().catch(() => ({ error: 'Erro desconhecido ao atualizar projeto.' }));
             throw new Error(errorData.error || 'Erro ao atualizar projeto.');
         }
 
-        const result = await response.json();
-        showToast(result.message, 'success');
+        // 2. Processar as etapas customizadas (novas/existentes/removidas)
+        const etapasToProcess = [];
+        const etapasInputs = document.querySelectorAll('#editEtapasContainer .etapa-dynamic-item');
+        
+        etapasInputs.forEach((item, index) => {
+            const etapaId = item.dataset.etapaId || null; // Null se for uma nova etapa
+            const nomeEtapa = item.querySelector('.nome-etapa-input').value;
+            const dataInicio = item.querySelector('.data-inicio-etapa-input').value;
+            const dataFim = item.querySelector('.data-fim-etapa-input').value;
+
+            if (!nomeEtapa) {
+                 showError(`O nome da etapa #${index + 1} é obrigatório.`);
+                 throw new Error('Nome da etapa não pode ser vazio.'); // Para parar o loop
+            }
+
+            etapasToProcess.push({
+                id: etapaId,
+                nome_etapa: nomeEtapa,
+                ordem: index + 1, // A ordem é baseada na posição atual no formulário
+                data_inicio: dataInicio || null,
+                data_fim: dataFim || null,
+                _isDeleted: item.dataset.isDeleted === 'true' // Usar a flag de exclusão
+            });
+        });
+
+        // Primeiro, obtenha as etapas atuais do banco de dados para o projeto
+        const currentStagesResponse = await authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}`);
+        const currentProjectData = await currentStagesResponse.json();
+        const existingStageIds = new Set(currentProjectData.customEtapas.map(etapa => etapa.id));
+        const stagesToKeepIds = new Set(etapasToProcess.filter(e => e.id && !e._isDeleted).map(e => e.id));
+
+        // Excluir etapas que foram removidas no frontend (mas existiam no BD)
+        for (const existingId of existingStageIds) {
+            if (!stagesToKeepIds.has(existingId)) {
+                await authenticatedFetch(`${API_BASE_URL}/etapas/${existingId}`, {
+                    method: 'DELETE'
+                });
+            }
+        }
+
+        // Adicionar ou atualizar etapas
+        for (const etapa of etapasToProcess) {
+            if (etapa._isDeleted) continue; // Já lidado acima
+
+            if (etapa.id) { // Etapa existente
+                await authenticatedFetch(`${API_BASE_URL}/etapas/${etapa.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(etapa)
+                });
+            } else { // Nova etapa
+                await authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}/etapas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projeto_id: projectId, // O ID do projeto é necessário para novas etapas
+                        nome_etapa: etapa.nome_etapa,
+                        ordem: etapa.ordem,
+                        data_inicio: etapa.data_inicio,
+                        data_fim: etapa.data_fim
+                    })
+                });
+            }
+        }
+
+        showToast('Projeto e etapas atualizados com sucesso!', 'success');
         closeModal('editProjectModal');
         fetchProjects(); // Atualizar a lista de projetos
 
@@ -1752,6 +1849,7 @@ function openDeleteConfirmModal(projectId, projectName) {
 /**
  * Exclui um projeto.
  * @param {number} projectId - ID do projeto.
+ * @returns {Promise<void>}
  */
 async function deleteProject(projectId) {
     try {
@@ -1781,20 +1879,27 @@ async function deleteProject(projectId) {
 /**
  * Abre o modal de sub-etapas.
  * @param {number} projectId - ID do projeto.
- * @param {number} etapaPrincipal - Número da etapa principal.
+ * @param {number} etapaId - ID da etapa principal (agora é o ID da tabela projeto_etapas).
  */
-async function openSubEtapasModal(projectId, etapaPrincipal) {
+async function openSubEtapasModal(projectId, etapaId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/projetos/${projectId}/sub-etapas?etapa=${etapaPrincipal}`);
+        // Buscar o nome da etapa a partir do backend (ou do objeto projeto se disponível)
+        const etapaResponse = await fetch(`${API_BASE_URL}/etapas/${etapaId}`);
+        if (!etapaResponse.ok) {
+            throw new Error('Erro ao buscar nome da etapa.');
+        }
+        const etapaData = await etapaResponse.json();
+
+        const response = await fetch(`${API_BASE_URL}/projetos/${projectId}/sub-etapas?etapa_id=${etapaId}`);
         if (!response.ok) {
             throw new Error('Erro ao buscar sub-etapas do projeto.');
         }
 
         const subEtapas = await response.json();
 
-        document.getElementById('subEtapasTitulo').textContent = `Etapa ${etapaPrincipal} - ${getEtapaNome(etapaPrincipal)}`;
+        document.getElementById('subEtapasTitulo').textContent = etapaData.nome_etapa; // Exibe o nome customizado
         document.getElementById('subEtapasProjetoId').value = projectId;
-        document.getElementById('subEtapasEtapaPrincipal').value = etapaPrincipal;
+        document.getElementById('subEtapasEtapaId').value = etapaId; // Armazena o ID da etapa customizada
 
         const subEtapasList = document.getElementById('subEtapasList');
         subEtapasList.innerHTML = '';
@@ -1818,7 +1923,7 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
                             isSubEtapaDelayed = true;
                         }
                     } catch (e) {
-                        console.error("Error parsing sub-etapa due date for delay check:", e);
+                        console.error("Erro ao analisar a data de vencimento da sub-etapa para verificação de atraso:", e);
                     }
                 }
 
@@ -1889,7 +1994,7 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
                          if (!isNaN(date.getTime())) {
                              dueDateText = `Previsto: ${date.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
                          }
-                     } catch (e) { console.error("Error parsing due date:", e); }
+                     } catch (e) { console.error("Erro ao analisar a data de vencimento:", e); }
                 }
                 dueDateDiv.textContent = dueDateText;
                 subEtapaItem.appendChild(dueDateDiv);
@@ -1911,6 +2016,7 @@ async function openSubEtapasModal(projectId, etapaPrincipal) {
 
         const modal = document.getElementById('subEtapasModal');
         modal.style.display = 'flex';
+        modal.querySelector('.modal-content').classList.add('show'); // Adiciona classe 'show'
 
     } catch (error) {
         console.error('Erro ao abrir modal de sub-etapas:', error);
@@ -1926,7 +2032,7 @@ async function addSubEtapa(event) {
     event.preventDefault();
 
     const projetoId = document.getElementById('subEtapasProjetoId').value;
-    const etapaPrincipal = document.getElementById('subEtapasEtapaPrincipal').value;
+    const etapaId = document.getElementById('subEtapasEtapaId').value; // Usar o ID da etapa customizada
     const descricao = document.getElementById('subEtapaDescricao').value;
     const dataPrevista = document.getElementById('newSubEtapaDueDate').value;
 
@@ -1942,9 +2048,9 @@ async function addSubEtapa(event) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                etapa_principal: etapaPrincipal,
+                projeto_etapa_id: etapaId, // Enviar o ID da etapa customizada
                 descricao,
-                data_prevista_conclusao: dataPrevista
+                data_prevista_conclusao: dataPrevista || null
             }),
         });
 
@@ -1956,7 +2062,7 @@ async function addSubEtapa(event) {
         const result = await response.json();
         showToast(result.message, 'success');
 
-        openSubEtapasModal(projetoId, etapaPrincipal);
+        openSubEtapasModal(projetoId, etapaId); // Reabrir o modal para atualizar a lista
 
     } catch (error) {
         console.error('Erro ao adicionar sub-etapa:', error);
@@ -1971,7 +2077,7 @@ async function addSubEtapa(event) {
  */
 async function updateSubEtapaStatus(subEtapaId, concluida) {
     const projetoId = document.getElementById("subEtapasProjetoId").value;
-    const etapaPrincipal = document.getElementById("subEtapasEtapaPrincipal").value;
+    const etapaId = document.getElementById("subEtapasEtapaId").value; // Usar o ID da etapa customizada
 
     try {
         const response = await authenticatedFetch(`${API_BASE_URL}/sub-etapas/${subEtapaId}`, {
@@ -1992,7 +2098,7 @@ async function updateSubEtapaStatus(subEtapaId, concluida) {
         const result = await response.json();
         showToast(result.message, "success");
 
-        openSubEtapasModal(projetoId, etapaPrincipal);
+        openSubEtapasModal(projetoId, etapaId); // Reabrir o modal para atualizar a lista
 
     } catch (error) {
         console.error("Erro ao atualizar status da sub-etapa:", error);
@@ -2007,7 +2113,7 @@ async function updateSubEtapaStatus(subEtapaId, concluida) {
  */
 async function deleteSubEtapa(subEtapaId) {
     const projetoId = document.getElementById('subEtapasProjetoId').value;
-    const etapaPrincipal = document.getElementById('subEtapasEtapaPrincipal').value;
+    const etapaId = document.getElementById('subEtapasEtapaId').value; // Usar o ID da etapa customizada
 
     try {
         const response = await authenticatedFetch(`${API_BASE_URL}/sub-etapas/${subEtapaId}`, {
@@ -2025,7 +2131,7 @@ async function deleteSubEtapa(subEtapaId) {
         const result = await response.json();
         showToast(result.message, 'success');
 
-        openSubEtapasModal(projetoId, etapaPrincipal);
+        openSubEtapasModal(projetoId, etapaId); // Reabrir o modal para atualizar a lista
 
     } catch (error) {
         console.error('Erro ao excluir sub-etapa:', error);
@@ -2038,6 +2144,111 @@ async function deleteSubEtapa(subEtapaId) {
 // ===============================================
 
 /**
+ * Adiciona um novo campo de etapa dinamicamente a um container.
+ * @param {string} containerId - ID do container onde adicionar a etapa.
+ * @param {string} [prefix=''] - Prefixo para IDs de campos (ex: 'edit_').
+ * @param {object} [etapaData=null] - Dados de uma etapa existente para pré-preencher.
+ */
+function addDynamicEtapaField(containerId, prefix = '', etapaData = null) {
+    const container = document.getElementById(containerId);
+    
+    const newEtapaDiv = document.createElement('div');
+    newEtapaDiv.className = 'etapa-item etapa-dynamic-item';
+    
+    if (etapaData) {
+        newEtapaDiv.dataset.etapaId = etapaData.id; // Armazena o ID da etapa existente
+        newEtapaDiv.dataset.isNew = 'false'; // Indica que não é uma nova etapa
+        newEtapaDiv.dataset.isDeleted = 'false'; // Garante que não está marcada para exclusão ao carregar
+    } else {
+        newEtapaDiv.dataset.etapaId = 'null'; // Para novas etapas, não há ID ainda
+        newEtapaDiv.dataset.isNew = 'true';
+        newEtapaDiv.dataset.isDeleted = 'false';
+    }
+
+    // A ordem será atualizada pela função updateEtapaOrder()
+    const nomeEtapaValue = etapaData ? etapaData.nome_etapa : '';
+    const dataInicioValue = etapaData && etapaData.data_inicio ? etapaData.data_inicio.replace(' ', 'T').slice(0, 16) : '';
+    const dataFimValue = etapaData && etapaData.data_fim ? etapaData.data_fim.replace(' ', 'T').slice(0, 16) : '';
+
+    newEtapaDiv.innerHTML = `
+        <h4>Etapa <span class="etapa-order"></span>:
+            <input type="text" class="nome-etapa-input" value="${nomeEtapaValue}" placeholder="Nome da Etapa" required>
+        </h4>
+        <div class="form-row">
+            <div class="form-group">
+                <label>De:</label>
+                <input type="datetime-local" class="data-inicio-etapa-input" value="${dataInicioValue}">
+            </div>
+            <div class="form-group">
+                <label>Até:</label>
+                <input type="datetime-local" class="data-fim-etapa-input" value="${dataFimValue}">
+            </div>
+        </div>
+        <button type="button" class="action-button danger remove-etapa-btn">Remover Etapa</button>
+    `;
+    container.appendChild(newEtapaDiv);
+
+    // Aplicar permissões aos campos de data e nome das etapas
+    const dataInicioInput = newEtapaDiv.querySelector('.data-inicio-etapa-input');
+    const dataFimInput = newEtapaDiv.querySelector('.data-fim-etapa-input');
+    const nomeEtapaInput = newEtapaDiv.querySelector('.nome-etapa-input');
+    const removeBtn = newEtapaDiv.querySelector('.remove-etapa-btn');
+
+    if (['lider'].includes(currentUserRole)) {
+        // Líder não pode editar nome, datas ou remover etapas
+        nomeEtapaInput.disabled = true;
+        nomeEtapaInput.classList.add('disabled-field');
+        dataInicioInput.disabled = true;
+        dataInicioInput.classList.add('disabled-field');
+        dataFimInput.disabled = true;
+        dataFimInput.classList.add('disabled-field');
+        removeBtn.style.display = 'none';
+    } else {
+        nomeEtapaInput.disabled = false;
+        nomeEtapaInput.classList.remove('disabled-field');
+        dataInicioInput.disabled = false;
+        dataInicioInput.classList.remove('disabled-field');
+        dataFimInput.disabled = false;
+        dataFimInput.classList.remove('disabled-field');
+        removeBtn.style.display = 'inline-block';
+    }
+
+    // Adicionar evento para o botão de remover desta nova etapa
+    removeBtn.addEventListener('click', (event) => {
+        const itemToRemove = event.target.closest('.etapa-dynamic-item');
+        
+        // Se a etapa tem um ID do banco de dados, não removemos, apenas marcamos para exclusão
+        if (itemToRemove.dataset.etapaId && itemToRemove.dataset.etapaId !== 'null') {
+            if (confirm('Tem certeza que deseja excluir esta etapa? Isso removerá todas as sub-etapas vinculadas.')) {
+                itemToRemove.dataset.isDeleted = 'true';
+                itemToRemove.style.display = 'none'; // Esconde visualmente
+                updateEtapaOrder(containerId); // Reordena os números das etapas visíveis
+            }
+        } else {
+            // Se for uma nova etapa (ainda não salva no BD), pode remover diretamente
+            itemToRemove.remove();
+            updateEtapaOrder(containerId); // Reordena os números das etapas visíveis
+        }
+    });
+
+    updateEtapaOrder(containerId); // Garante que as ordens estejam corretas após adicionar
+}
+
+/**
+ * Atualiza os números de ordem das etapas dinâmicas no frontend.
+ * @param {string} containerId - ID do container das etapas.
+ */
+function updateEtapaOrder(containerId) {
+    const container = document.getElementById(containerId);
+    const etapas = container.querySelectorAll('.etapa-dynamic-item:not([data-is-deleted="true"])'); // Apenas visíveis
+    etapas.forEach((etapaDiv, index) => {
+        etapaDiv.querySelector('.etapa-order').textContent = index + 1;
+    });
+    // Não precisamos de um dynamicEtapaCounter global aqui, o length de 'etapas' já nos dá o número de etapas visíveis.
+}
+
+
+/**
  * Cadastra um novo projeto.
  * @param {Event} event - Evento do formulário.
  */
@@ -2047,90 +2258,303 @@ async function cadastrarProjeto(event) {
     const nome = document.getElementById('projetoNome').value;
     const lider = document.getElementById('projetoLider').value;
     const equipe = document.getElementById('projetoEquipe').value;
-    const etapa_atual = document.getElementById('projetoEtapa').value;
     const data_inicio = document.getElementById('projetoDataInicio').value;
     const data_fim = document.getElementById('projetoDataFim').value;
 
-    // Datas das etapas
-    const datas = {};
-    for (let i = 1; i <= 7; i++) {
-        const dataInicio = document.getElementById(`dataInicioEtapa${i}`).value;
-        const dataFim = document.getElementById(`dataFimEtapa${i}`).value;
+    if (!nome || !lider) {
+        showError('Nome e líder do projeto são obrigatórios.');
+        return;
+    }
 
-        if (dataInicio) {
-            datas[`data_inicio_etapa${i}`] = dataInicio;
+    const etapasInputs = document.querySelectorAll('#etapasContainer .etapa-dynamic-item');
+    const etapasToSave = [];
+    
+    for (let i = 0; i < etapasInputs.length; i++) {
+        const item = etapasInputs[i];
+        const nomeEtapa = item.querySelector('.nome-etapa-input').value.trim();
+        if (!nomeEtapa) {
+            showError(`O nome da etapa #${i + 1} é obrigatório. Por favor, preencha ou remova a etapa.`);
+            return;
+        }
+        etapasToSave.push({
+            nome_etapa: nomeEtapa,
+            ordem: i + 1,
+            data_inicio: item.querySelector('.data-inicio-etapa-input').value || null,
+            data_fim: item.querySelector('.data-fim-etapa-input').value || null,
+        });
+    }
+
+    if (etapasToSave.length === 0) {
+        showError('Por favor, adicione pelo menos uma etapa para o projeto.');
+        return;
+    }
+
+    try {
+        // 1. Cadastrar o projeto principal
+        const projectResponse = await authenticatedFetch(`${API_BASE_URL}/projetos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nome, lider, equipe,
+                data_inicio: data_inicio || null,
+                data_fim: data_fim || null,
+            }),
+        });
+
+        if (!projectResponse.ok) {
+            const errorData = await projectResponse.json().catch(() => ({ error: 'Erro desconhecido ao cadastrar projeto.' }));
+            throw new Error(errorData.error || 'Erro ao cadastrar projeto.');
         }
 
-        if (dataFim) {
-            datas[`data_fim_etapa${i}`] = dataFim;
+        const projectResult = await projectResponse.json();
+        const newProjectId = projectResult.id;
+
+        // 2. Cadastrar as etapas dinâmicas vinculadas ao novo projeto
+        const promises = [];
+        for (const etapa of etapasToSave) {
+            promises.push(authenticatedFetch(`${API_BASE_URL}/projetos/${newProjectId}/etapas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(etapa)
+            }));
+        }
+        await Promise.all(promises); // Espera todas as etapas serem criadas
+
+        showToast('Projeto e etapas cadastrados com sucesso!', 'success');
+
+        // Limpar formulário
+        document.getElementById('cadastroProjetoForm').reset();
+        document.getElementById('etapasContainer').innerHTML = '';
+        addDynamicEtapaField('etapasContainer'); // Adiciona uma etapa padrão vazia de volta
+
+        // Mudar para a tela de projetos e atualizar a lista
+        // O fetchProjects irá buscar os projetos *com as etapas reais e seus IDs reais*
+        setTimeout(() => {
+            switchScreen('tela2');
+            fetchProjects(); // Recarrega os projetos e o stepper será renderizado com IDs corretos
+        }, 1500);
+
+    } catch (error) {
+        console.error('Erro ao cadastrar projeto:', error);
+        showError('Erro ao cadastrar projeto: ' + error.message);
+    }
+}
+
+/**
+ * Abre o modal de edição de projeto.
+ * @param {number} projectId - ID do projeto.
+ */
+async function openEditProjectModal(projectId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/projetos/${projectId}`);
+        if (!response.ok) {
+            throw new Error('Erro ao buscar dados do projeto para edição.');
+        }
+
+        const project = await response.json();
+
+        // Preencher o formulário de edição do projeto principal
+        document.getElementById('editProjectId').value = project.id;
+        document.getElementById('editProjetoNome').value = project.nome;
+        document.getElementById('editProjetoLider').value = project.lider;
+        document.getElementById('editProjetoEquipe').value = project.equipe_json ? JSON.parse(project.equipe_json).join(', ') : '';
+
+        const editDataInicioInput = document.getElementById('editProjetoDataInicio');
+        const editDataFimInput = document.getElementById('editProjetoDataFim');
+
+        // Desabilitar campos de data do projeto para o perfil 'lider'
+        if (['lider'].includes(currentUserRole)) {
+            editDataInicioInput.disabled = true;
+            editDataInicioInput.classList.add('disabled-field');
+            editDataFimInput.disabled = true;
+            editDataFimInput.classList.add('disabled-field');
+        } else {
+            editDataInicioInput.disabled = false;
+            editDataInicioInput.classList.remove('disabled-field');
+            editDataFimInput.disabled = false;
+            editDataFimInput.classList.remove('disabled-field');
+        }
+
+        // Preencher datas gerais
+        editDataInicioInput.value = project.data_inicio ? project.data_inicio.split('T')[0] : '';
+        editDataFimInput.value = project.data_fim ? project.data_fim.split('T')[0] : '';
+
+        // --- Carregar e renderizar etapas customizadas existentes ---
+        const editEtapasContainer = document.getElementById('editEtapasContainer');
+        editEtapasContainer.innerHTML = ''; // Limpar etapas antigas
+
+        if (project.customEtapas && project.customEtapas.length > 0) {
+            // Ordenar etapas pela ordem antes de renderizar
+            project.customEtapas.sort((a, b) => a.ordem - b.ordem).forEach((etapa) => {
+                // Ao carregar, cada etapa existente já terá um dataset.etapaId
+                addDynamicEtapaField('editEtapasContainer', 'edit_', etapa);
+            });
+        } else {
+            // Se não houver etapas, adicione uma etapa padrão vazia para começar
+            addDynamicEtapaField('editEtapasContainer', 'edit_');
+        }
+        updateEtapaOrder('editEtapasContainer'); // Garante que a ordem visual esteja correta
+        // --- FIM DA MODIFICAÇÃO CHAVE ---
+
+        // Exibir o modal
+        const modal = document.getElementById('editProjectModal');
+        modal.style.display = 'flex';
+        modal.querySelector('.modal-content').classList.add('show');
+
+    } catch (error) {
+        console.error('Erro ao abrir edição do projeto:', error);
+        showError('Erro ao abrir edição do projeto: ' + error.message);
+    }
+}
+
+/**
+ * Salva as alterações de um projeto, incluindo etapas.
+ * Gerencia a atualização do projeto principal, e a adição, atualização e exclusão de etapas.
+ * @param {Event} event - Evento do formulário.
+ */
+async function saveProjectChanges(event) {
+    event.preventDefault();
+
+    const projectId = document.getElementById('editProjectId').value;
+    const nome = document.getElementById('editProjetoNome').value;
+    const lider = document.getElementById('editProjetoLider').value;
+    const equipe = document.getElementById('editProjetoEquipe').value;
+
+    let data_inicio = document.getElementById('editProjetoDataInicio').value;
+    let data_fim = document.getElementById('editProjetoDataFim').value;
+
+    // Se o usuário for 'lider', as datas de início e fim do projeto não devem ser alteradas
+    if (['lider'].includes(currentUserRole)) {
+        try {
+            const originalProjectResponse = await fetch(`${API_BASE_URL}/projetos/${projectId}`);
+            if (originalProjectResponse.ok) {
+                const originalProject = await originalProjectResponse.json();
+                data_inicio = originalProject.data_inicio ? originalProject.data_inicio.split('T')[0] : '';
+                data_fim = originalProject.data_fim ? originalProject.data_fim.split('T')[0] : '';
+            }
+        } catch (error) {
+            console.warn('Não foi possível recuperar as datas originais do projeto para o perfil de líder, prosseguindo com os valores atuais do formulário:', error);
         }
     }
 
-    // Validar campos obrigatórios
     if (!nome || !lider) {
         showError('Nome e líder do projeto são obrigatórios.');
         return;
     }
 
     try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/projetos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+        // 1. Atualizar o projeto principal
+        const projectUpdateResponse = await authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 nome,
                 lider,
                 equipe,
-                etapa_atual,
-                data_inicio,
-                data_fim,
-                ...datas
-            }),
+                data_inicio: data_inicio || null,
+                data_fim: data_fim || null,
+            })
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido ao cadastrar projeto.' }));
-            throw new Error(errorData.error || 'Erro ao cadastrar projeto.');
+        if (!projectUpdateResponse.ok) {
+            const errorData = await projectUpdateResponse.json().catch(() => ({ error: 'Erro desconhecido ao atualizar projeto.' }));
+            throw new Error(errorData.error || 'Erro ao atualizar projeto.');
         }
 
-        const result = await response.json();
+        // 2. Processar as etapas customizadas (novas/existentes/removidas)
+        const editEtapasContainer = document.getElementById('editEtapasContainer');
+        const currentEtapasElements = editEtapasContainer.querySelectorAll('.etapa-dynamic-item'); // Todos os elementos de etapa no formulário
 
-        // Exibir mensagem de sucesso
-        const statusMsg = document.getElementById('statusMsg');
-        statusMsg.textContent = result.message;
-        statusMsg.className = 'success';
-        statusMsg.style.display = 'block';
+        const promises = [];
+        const originalEtapaIds = new Set(); // Para acompanhar quais IDs existiam no BD originalmente
+        // Primeiro, obtenha os IDs das etapas que já existiam no BD para este projeto
+        const currentProjectResponse = await authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}`);
+        const currentProjectData = await currentProjectResponse.json();
+        if (currentProjectData.customEtapas) {
+            currentProjectData.customEtapas.forEach(etapa => originalEtapaIds.add(etapa.id));
+        }
 
-        // Limpar formulário
-        document.getElementById('cadastroProjetoForm').reset();
+        const etapasInFormIds = new Set(); // Para acompanhar quais IDs estão no formulário AGORA
 
-        // Esconder mensagem após alguns segundos
-        setTimeout(() => {
-            statusMsg.style.display = 'none';
-        }, 5000);
+        // Iterar sobre as etapas no formulário para identificar o que fazer
+        currentEtapasElements.forEach((item, index) => {
+            const etapaId = item.dataset.etapaId === 'null' ? null : parseInt(item.dataset.etapaId); // ID da etapa (null para nova)
+            const isMarkedForDeletion = item.dataset.isDeleted === 'true';
+            const nomeEtapa = item.querySelector('.nome-etapa-input').value.trim();
+            const dataInicio = item.querySelector('.data-inicio-etapa-input').value;
+            const dataFim = item.querySelector('.data-fim-etapa-input').value;
 
-        // Mudar para a tela de projetos e atualizar a lista
-        setTimeout(() => {
-            switchScreen('tela2');
-            fetchProjects();
-        }, 1500);
+            if (isMarkedForDeletion) {
+                // Se a etapa estava no BD e foi marcada para exclusão, adiciona a promessa de DELETE
+                if (etapaId && originalEtapaIds.has(etapaId)) {
+                    promises.push(authenticatedFetch(`${API_BASE_URL}/etapas/${etapaId}`, {
+                        method: 'DELETE'
+                    }).then(res => {
+                        if (!res.ok) {
+                            console.error(`Falha ao excluir etapa ${etapaId}:`, res.statusText);
+                            throw new Error(`Falha ao excluir etapa ${etapaId}`);
+                        }
+                    }));
+                }
+            } else {
+                // Etapa não marcada para exclusão: validar e preparar para ADD/PUT
+                if (!nomeEtapa) {
+                    showError(`O nome da etapa #${index + 1} é obrigatório. As alterações não foram salvas.`);
+                    throw new Error('Nome da etapa não pode ser vazio.'); // Aborta o processo
+                }
+
+                const etapaData = {
+                    nome_etapa: nomeEtapa,
+                    ordem: index + 1, // A ordem é baseada na posição atual no formulário
+                    data_inicio: dataInicio || null,
+                    data_fim: dataFim || null,
+                };
+
+                if (etapaId && originalEtapaIds.has(etapaId)) {
+                    // Etapa existente (no BD e no formulário), fazer PUT
+                    promises.push(authenticatedFetch(`${API_BASE_URL}/etapas/${etapaId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(etapaData)
+                    }).then(res => {
+                        if (!res.ok) {
+                            console.error(`Falha ao atualizar etapa ${etapaId}:`, res.statusText);
+                            throw new Error(`Falha ao atualizar etapa ${etapaId}`);
+                        }
+                    }));
+                    etapasInFormIds.add(etapaId); // Marca que essa etapa do BD está no formulário
+                } else {
+                    // Nova etapa (não estava no BD), fazer POST
+                    promises.push(authenticatedFetch(`${API_BASE_URL}/projetos/${projectId}/etapas`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projeto_id: projectId,
+                            ...etapaData
+                        })
+                    }).then(res => {
+                        if (!res.ok) {
+                            console.error(`Falha ao adicionar nova etapa:`, res.statusText);
+                            throw new Error(`Falha ao adicionar nova etapa`);
+                        }
+                    }));
+                }
+            }
+        });
+        
+        // Executar todas as operações no banco de dados
+        await Promise.all(promises);
+
+        showToast('Projeto e etapas atualizados com sucesso!', 'success');
+        closeModal('editProjectModal');
+        fetchProjects(); // Atualizar a lista de projetos
 
     } catch (error) {
-        console.error('Erro ao cadastrar projeto:', error);
-
-        // Exibir mensagem de erro
-        const statusMsg = document.getElementById('statusMsg');
-        statusMsg.textContent = 'Erro ao cadastrar projeto: ' + error.message;
-        statusMsg.className = 'error';
-        statusMsg.style.display = 'block';
-
-        // Esconder mensagem após alguns segundos
-        setTimeout(() => {
-            statusMsg.style.display = 'none';
-        }, 5000);
+        console.error('Erro ao salvar alterações do projeto:', error);
+        showError('Erro ao salvar alterações: ' + error.message);
     }
 }
+
 
 // ===============================================
 // Inicialização e Event Listeners
@@ -2144,31 +2568,118 @@ function openModal(modalId) {
     }
 }
 
+// Funções para controle da atualização automática de projetos (Tela 2)
+/**
+ * Inicia a atualização automática dos dados da tela de projetos.
+ * @param {number} intervalSeconds - Intervalo em segundos entre cada atualização.
+ */
+function startAutoRefreshProjects(intervalSeconds = 10) {
+    stopAutoRefreshProjects(); // Garantir que não haja intervalos duplicados
+    const intervalMs = intervalSeconds * 1000;
+    autoRefreshProjectsInterval = setInterval(() => {
+        // Obter o termo de busca atual para manter o filtro/ordenação
+        const searchTerm = document.getElementById('projectSearchInput').value;
+        fetchProjects(searchTerm);
+        // showToast('Projetos atualizados automaticamente!', 'info', 1500); // Feedback suave
+    }, intervalMs);
+    showToast(`Atualização automática de projetos ativada (${intervalSeconds}s)!`, 'success', 2000);
+}
+
+/**
+ * Para a atualização automática dos dados da tela de projetos.
+ */
+function stopAutoRefreshProjects() {
+    if (autoRefreshProjectsInterval) {
+        clearInterval(autoRefreshProjectsInterval);
+        autoRefreshProjectsInterval = null;
+        showToast('Atualização automática de projetos desativada.', 'info', 1500);
+    }
+}
+
+// NOVO: Funções para controle da atualização automática do dashboard (Tela 1)
+/**
+ * Inicia a atualização automática dos dados do dashboard.
+ * @param {number} intervalSeconds - Intervalo em segundos entre cada atualização.
+ */
+function startAutoRefreshDashboard(intervalSeconds = 10) {
+    stopAutoRefreshDashboard(); // Garantir que não haja intervalos duplicados
+    const intervalMs = intervalSeconds * 1000;
+
+    // Criar/atualizar o botão de parar atualização
+    let stopButton = document.getElementById('stopRefreshButton');
+    if (!stopButton) {
+        stopButton = document.createElement('button');
+        stopButton.id = 'stopRefreshButton';
+        stopButton.textContent = 'Parar Atualização Automática';
+        stopButton.className = 'action-button secondary';
+        stopButton.style.position = 'fixed';
+        stopButton.style.bottom = '20px';
+        stopButton.style.right = '20px';
+        stopButton.style.zIndex = '1000';
+        stopButton.addEventListener('click', stopAutoRefreshDashboard);
+        document.body.appendChild(stopButton);
+    } else {
+        stopButton.style.display = 'inline-block'; // Mostra o botão se já existe mas estava oculto
+    }
+
+    autoRefreshDashboardInterval = setInterval(() => {
+        const selectedDate = document.getElementById('selectedDate').value;
+        fetchIndicadores(selectedDate);
+        // showToast('Dashboard atualizado automaticamente!', 'info', 1500);
+    }, intervalMs);
+    showToast(`Atualização automática do dashboard ativada (${intervalSeconds}s)!`, 'success', 2000);
+}
+
+/**
+ * Para a atualização automática do dashboard.
+ */
+function stopAutoRefreshDashboard() {
+    if (autoRefreshDashboardInterval) {
+        clearInterval(autoRefreshDashboardInterval);
+        autoRefreshDashboardInterval = null;
+        showToast('Atualização automática do dashboard desativada.', 'info', 1500);
+        const stopButton = document.getElementById('stopRefreshButton');
+        if (stopButton) {
+            stopButton.style.display = 'none'; // Oculta o botão
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Check for existing token and role on load
+    // Verificar token e perfil existentes ao carregar
     currentUserToken = localStorage.getItem('accessToken');
     currentUserRole = localStorage.getItem('userRole');
 
     if (currentUserToken && currentUserRole) {
-        // If logged in, show app content and apply permissions
+        // Se logado, mostrar o conteúdo do aplicativo e aplicar permissões
         document.getElementById('appContent').style.display = 'block';
         applyRolePermissions();
-        // Initialize dashboard content
         updateCurrentDateTime();
-        setInterval(updateCurrentDateTime, 1000);
-        setupDateFilter();
+        setInterval(updateCurrentDateTime, 1000); // Atualiza data/hora no header continuamente
+
+        // Determine a tela ativa inicial (se houver) e inicie o auto-refresh apropriado
+        const initialActiveScreen = document.querySelector('.tela.active');
+        if (initialActiveScreen && initialActiveScreen.id === 'tela1') {
+            setupDateFilter(); // Garante que o dashboard carregue seus dados iniciais
+            startAutoRefreshDashboard(10);
+        } else if (initialActiveScreen && initialActiveScreen.id === 'tela2') {
+            fetchProjects();
+            startAutoRefreshProjects(10);
+        }
+        // Se não houver tela ativa definida, ou for tela3, nenhum auto-refresh é iniciado por padrão.
+
     } else {
-        // If not logged in, show login modal
+        // Se não logado, mostrar o modal de login
         openModal('loginModal');
     }
 
-    // Login Form Submission
+    // Envio do formulário de Login
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', handleLogin);
     }
 
-    // Logout Button
+    // Botão de Logout
     const logoutButton = document.getElementById('logoutButton');
     if (logoutButton) {
         logoutButton.addEventListener('click', handleLogout);
@@ -2205,7 +2716,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateMetaButton.addEventListener('click', updateDailyMeta);
     }
 
-    // Formulário de registro de produção (agora só para produção/reprovados)
+    // Formulário de registro de produção (agora apenas para produção/reprovados)
     const registerProductionForm = document.getElementById('registerProductionForm');
     if (registerProductionForm) {
         registerProductionForm.addEventListener('submit', registerProduction);
@@ -2239,7 +2750,7 @@ document.addEventListener('DOMContentLoaded', function() {
         generateReportBtn.addEventListener('click', generateReport);
     }
 
-    // Report Download Buttons - Event Listeners
+    // Botões de Download de Relatório - Event Listeners
     const downloadTxtBtn = document.getElementById('downloadTxt');
     const downloadExcelBtn = document.getElementById('downloadExcel');
     const printReportBtn = document.getElementById('printReport');
@@ -2254,34 +2765,56 @@ document.addEventListener('DOMContentLoaded', function() {
         printReportBtn.addEventListener('click', printReport);
     }
 
-    // Botão de atualizar projetos
-    const refreshProjectsBtn = document.getElementById('refreshProjects');
-    if (refreshProjectsBtn) {
-        refreshProjectsBtn.addEventListener('click', fetchProjects);
+    // Botão de busca de projetos
+    const searchProjectsBtn = document.getElementById('searchProjectsBtn');
+    if (searchProjectsBtn) {
+        searchProjectsBtn.addEventListener('click', function() {
+            const searchTerm = document.getElementById('projectSearchInput').value;
+            fetchProjects(searchTerm); // Chama a função com o termo de busca
+        });
     }
 
+    // Opcional: Buscar ao pressionar Enter no campo de busca
+    const projectSearchInput = document.getElementById('projectSearchInput');
+    if (projectSearchInput) {
+        projectSearchInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                const searchTerm = this.value;
+                fetchProjects(searchTerm);
+            }
+        });
+    }
+
+    // Botão de atualizar projetos (agora apenas limpa a busca e aciona a atualização automática)
+    const refreshProjectsBtn = document.getElementById('refreshProjects');
+    if (refreshProjectsBtn) {
+        refreshProjectsBtn.addEventListener('click', function() {
+            document.getElementById('projectSearchInput').value = ''; // Limpa o campo de busca
+            fetchProjects(''); // Recarrega todos os projetos (ignora o termo de busca)
+            showToast('Projetos atualizados manualmente!', 'info', 1500);
+        });
+    }
 
     // Formulário de cadastro de projeto
     const cadastroProjetoForm = document.getElementById('cadastroProjetoForm');
     if (cadastroProjetoForm) {
         cadastroProjetoForm.addEventListener('submit', cadastrarProjeto);
+        // Adicionar uma etapa padrão ao carregar o formulário de cadastro
+        addDynamicEtapaField('etapasContainer');
+        document.getElementById('addEtapaBtn').addEventListener('click', () => addDynamicEtapaField('etapasContainer'));
     }
 
     // Formulário de edição de projeto
     const editProjectForm = document.getElementById('editProjectForm');
     if (editProjectForm) {
         editProjectForm.addEventListener('submit', saveProjectChanges);
+        document.getElementById('editAddEtapaBtn').addEventListener('click', () => addDynamicEtapaField('editEtapasContainer'));
     }
 
     // Formulário de adição de sub-etapa
     const addSubEtapaForm = document.getElementById('addSubEtapaForm');
     if (addSubEtapaForm) {
         addSubEtapaForm.addEventListener('submit', addSubEtapa);
-    }
-
-    // Carregar projetos se estiver na tela de projetos
-    if (document.querySelector('.tela.active').id === 'tela2') {
-        fetchProjects();
     }
 });
 
@@ -2293,7 +2826,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function openEditSubEtapaModal(subEtapa) {
     document.getElementById("editSubEtapaId").value = subEtapa.id;
     document.getElementById("editSubEtapaProjetoId").value = document.getElementById("subEtapasProjetoId").value;
-    document.getElementById("editSubEtapaEtapaPrincipal").value = document.getElementById("subEtapasEtapaPrincipal").value;
+    document.getElementById("editSubEtapaEtapaId").value = document.getElementById("subEtapasEtapaId").value; // Usa o ID da etapa customizada
     document.getElementById("editSubEtapaDescricao").value = subEtapa.descricao;
 
     const editSubEtapaDueDateInput = document.getElementById("editSubEtapaDueDate");
@@ -2312,6 +2845,7 @@ function openEditSubEtapaModal(subEtapa) {
 
     const modal = document.getElementById("editSubEtapaModal");
     modal.style.display = "flex";
+    modal.querySelector('.modal-content').classList.add('show'); // Adiciona classe 'show'
 
     const form = document.getElementById("editSubEtapaForm");
     form.onsubmit = null;
@@ -2327,7 +2861,7 @@ async function saveSubEtapaChanges(event) {
 
     const subEtapaId = document.getElementById("editSubEtapaId").value;
     const projetoId = document.getElementById("editSubEtapaProjetoId").value;
-    const etapaPrincipal = document.getElementById("editSubEtapaEtapaPrincipal").value;
+    const etapaId = document.getElementById("editSubEtapaEtapaId").value; // Usa o ID da etapa customizada
     const descricao = document.getElementById("editSubEtapaDescricao").value;
     let dataPrevista = document.getElementById("editSubEtapaDueDate").value;
 
@@ -2336,6 +2870,7 @@ async function saveSubEtapaChanges(event) {
         return;
     }
 
+    // Se o usuário for 'lider', a data prevista não deve ser alterada. Pega o valor original.
     if (['lider'].includes(currentUserRole)) {
         try {
             const originalSubEtapaResponse = await fetch(`${API_BASE_URL}/sub-etapas/${subEtapaId}`);
@@ -2361,15 +2896,15 @@ async function saveSubEtapaChanges(event) {
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao atualizar sub-etapa." }));
-            throw new Error(errorData.error || "Erro ao atualizar sub-etapa.");
+            const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao atualizar status da sub-etapa." }));
+            throw new Error(errorData.error || "Erro ao atualizar status da sub-etapa.");
         }
 
         const result = await response.json();
         showToast(result.message, "success");
         closeModal("editSubEtapaModal");
 
-        openSubEtapasModal(projetoId, etapaPrincipal);
+        openSubEtapasModal(projetoId, etapaId); // Reabrir o modal para atualizar a lista
 
     } catch (error) {
         console.error("Erro ao salvar alterações da sub-etapa:", error);

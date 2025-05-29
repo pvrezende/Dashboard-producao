@@ -1,5 +1,6 @@
 /* styles.css - Refatorado para o design da imagem e unificando todas as telas */
 
+/* --- Variáveis de Cores e Estilos Globais --- */
 :root {
     /* Cores ajustadas para a paleta da imagem */
     --main-bg-color: #f8f9fa; /* Fundo bem claro */
@@ -36,6 +37,7 @@
     --stepper-delayed-color: var(--danger-color);
 }
 
+/* --- Estilos do Corpo da Página --- */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
@@ -46,10 +48,10 @@ body {
     flex-direction: column;
     min-height: 100vh;
     height: 100vh;
-    overflow: hidden;
+    overflow: hidden; /* Mantém o scroll global desabilitado */
 }
 
-/* Navegação entre telas */
+/* --- Navegação Entre Telas --- */
 .screen-selector {
     display: flex;
     justify-content: center;
@@ -91,7 +93,7 @@ body {
     background-color: var(--primary-hover-color);
 }
 
-/* Estilo geral para telas - Full screen */
+/* --- Estilo Geral para Telas (Conteúdo Principal) --- */
 .tela {
     display: none;
     flex-grow: 1;
@@ -99,14 +101,46 @@ body {
     width: 100%;
     height: calc(100vh - 70px); /* Altura total menos a altura do seletor de telas */
     box-sizing: border-box;
-    overflow-y: auto;
+    overflow-y: auto; /* Permite rolagem para o conteúdo da tela se for maior que a altura */
 }
 
 .tela.active {
     display: block;
 }
 
-/* Centralizing dashboards/forms within full screen */
+/*botão de alternar senha*/
+.password-input-container {
+    position: relative;
+    width: 100%;
+    display: flex; /* Garante que o input e o botão fiquem lado a lado */
+    align-items: center;
+}
+
+.password-input-container input {
+    padding-right: 40px; /* Cria espaço para o botão */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted-color);
+    font-size: 1em;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    top: 0;
+}
+
+.toggle-password:hover {
+    color: var(--primary-color);
+}
+
+/* Centralizando dashboards/formulários dentro da tela cheia */
 .dashboard, .dashboard-content, .form-container {
     max-width: 100%;
     width: 100%;
@@ -118,8 +152,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    height: 100%;
-    overflow-y: auto;
+    height: 100%; /* Ajuste para preencher a altura da tela pai */
+    overflow-y: auto; /* Permite rolagem para o conteúdo principal da tela */
 }
 
 /* --- Dashboard (Tela 1) --- */
@@ -152,7 +186,7 @@ body {
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
-    margin-left: auto; /* Push buttons to the right */
+    margin-left: auto; /* Empurra os botões para a direita */
 }
 
 .date-filter {
@@ -225,12 +259,35 @@ body {
     background-color: var(--danger-color);
     color: white;
 }
-
 .action-button.danger:hover {
     background-color: var(--danger-hover-color);
     transform: translateY(-2px);
 }
 
+/* botão de busca */
+
+.search-project-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#projectSearchInput {
+    padding: 8px 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    outline: none;
+    transition: border-color 0.3s ease;
+    flex-grow: 1; /* Permite que o input se expanda */
+    min-width: 150px; /* Largura mínima para o campo de busca */
+}
+
+#projectSearchInput:focus {
+    border-color: var(--primary-color);
+}
+
+/* --- Grid de Indicadores (KPIs) --- */
 .indicators-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -248,7 +305,7 @@ body {
     border-left: 4px solid transparent;
 }
 
-/* Cores específicas para cada tipo de card */
+/* Cores específicas para cada tipo de card de indicador */
 .meta-card {
     border-left-color: #ffc107; /* Amarelo */
 }
@@ -343,8 +400,7 @@ body {
     color: var(--text-color);
 }
 
-
-
+/* --- Seção de Gráfico de Produção --- */
 .oee-section {
     background-color: var(--main-bg-color);
     border-radius: var(--border-radius);
@@ -373,7 +429,7 @@ body {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 20px;
     padding-bottom: 15px;
     border-bottom: 1px solid var(--divider-color);
 }
@@ -381,7 +437,23 @@ body {
 .project-list-header h2 {
     margin: 0;
     color: var(--primary-color);
-    font-size: 1.8em;
+    font-size: 2em;
+    flex-shrink: 0; /* Impede que ele encolha */
+    min-width: 150px; /* Garante uma largura mínima para o título */
+}
+
+.project-list-header .stepper-text {
+    flex-grow: 1; /* Permite que este elemento ocupe o espaço restante */
+    text-align: center; /* Centraliza o texto dentro do espaço disponível */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.project-list-header .action-buttons {
+    flex-grow: 0;
+    flex-shrink: 0; /* Impede que encolha */
+    text-align: right; /* Alinha o conteúdo à direita dentro de sua área */
+    min-width: 150px; /* Garante espaço suficiente para os botões */
 }
 
 .action-buttons {
@@ -408,7 +480,7 @@ body {
     transform: translateY(-2px);
 }
 
-/* Grid layout for project cards */
+/* Layout de Grid para Cards de Projeto */
 .projects-container {
     display: flex;
     flex-direction: column;
@@ -418,23 +490,24 @@ body {
 
 .project-card {
     display: grid;
-    /* Define grid columns: Project Info (flexible), Stepper (larger), Actions (fixed size) */
-    grid-template-columns: 1.5fr 3fr 120px; /* Adjust 120px for button column width */
-    gap: 20px;
-    align-items: center; /* Vertically align content in the grid row */
+    /* Define colunas do grid: Info do Projeto (flexível), Stepper (maior), Ações (tamanho fixo) */
+    grid-template-columns: 1.2fr 4fr 150px; /* Aumentada coluna do stepper e largura dos botões de ação */
+    gap: 25px; /* Espaçamento aumentado */
+    align-items: center; /* Alinha o conteúdo verticalmente na linha do grid */
     background-color: var(--card-bg-color);
-    padding: 20px;
+    padding: 25px; /* Preenchimento aumentado */
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
-    transition: transform 0.2s ease;
-    border-left: 4px solid var(--primary-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-left: 5px solid var(--primary-color); /* Borda mais grossa */
 }
 
 .project-card:hover {
-    transform: translateY(-3px);
+    transform: translateY(-5px); /* Efeito de hover mais perceptível */
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15); /* Sombra mais proeminente no hover */
 }
 
-/* Project Info Section */
+/* Seção de Informações do Projeto */
 .project-info {
     display: flex;
     flex-direction: column;
@@ -442,101 +515,144 @@ body {
 }
 
 .project-info-name {
-    font-size: 1.2em;
+    font-size: 1.4em; /* Nome do projeto maior */
     font-weight: bold;
     color: var(--primary-color);
-    margin-bottom: 5px;
+    margin-bottom: 8px;
 }
 
 .project-info-details {
-    font-size: 1.0em;
+    font-size: 1.1em; /* Texto de detalhes maior */
     color: var(--text-color);
-    line-height: 1.4;
+    line-height: 1.6;
 }
 
-/* Stepper (Progress Bar) Section */
+/* --- Seção do Stepper (Barra de Progresso) --- */
 .project-stepper-wrapper {
     display: flex;
-    flex-direction: column; /* Allow text to be below the stepper */
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
+    width: 100%; /* Garante que o wrapper ocupa toda a largura disponível */
 }
 
 .stepper-text {
     font-weight: bold;
     color: var(--text-color);
     text-align: center;
-    font-size: 1em;
-    margin-bottom: 5px; /* Space between text and progress bar */
+    font-size: 1.5em;
+    margin-bottom: 5px;
+    text-transform: uppercase;
 }
 
 .stepper-container {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap; /* Permitir quebra de linha */
+    justify-content: center; /* Centralizar os itens */
     align-items: center;
     position: relative;
-    width: 90%; /* Ajuste conforme necessário */
-    max-width: 600px; /* Largura máxima para o stepper */
-    margin: 20px auto;
-    padding: 20px 0; /* Aumentado para dar espaço à linha e aos números */
-}
-/* linhas de evolução
-.stepper-container::before { 
-    content: '';
-    position: absolute;
-    top: 50%; 
-    left: 0;
     width: 100%;
-    height: 4px; 
-    background-color: var(--text-muted-color); 
-    transform: translateY(-50%);
-    z-index: 1; 
-    border-radius: 2px;
+    padding: 30px 0;
+    gap: 40px; /* Aumentar o gap para mais espaço entre os itens */
+    row-gap: 80px; /* Espaçamento maior entre as linhas quando houver quebra */
 }
-
-.stepper-container::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
-    height: 4px;
-    background-color: var(--stepper-completed-color); 
-    width: calc(var(--progress-width, 0%) - 1%); 
-    transform: translateY(-50%);
-    z-index: 1; 
-    border-radius: 2px;
-} */
 
 .step {
     position: relative;
-    width: 36px; /* Increased size */
-    height: 36px; /* Increased size */
+    width: 90px; /* Mantido em 90px */
+    height: 90px; /* Mantido em 90px */
+    min-width: 90px; /* Garante que não encolha */
+    max-width: 90px; /* Garante que não cresça demais */
     border-radius: 50%;
     background-color: var(--card-bg-color);
     color: var(--text-color);
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1em; /* Increased font size */
+    font-size: 1.8em; /* Aumentado para 1.8em (o percentual dentro da bolinha) */
     font-weight: bold;
-    border: 2px solid var(--stepper-inactive-color);
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-    z-index: 2; /* Ensure steps are above the line */
-    flex-shrink: 0; /* Prevent steps from shrinking */
+    border: 3px solid var(--stepper-inactive-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+    z-index: 2;
+    flex-shrink: 0; /* Impede que as bolinhas encolham */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    cursor: pointer; /* Indica que é clicável */
 }
 
-.step.completed {
+.step:hover {
+    transform: scale(1.05); /* Pequeno zoom no hover */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.step-connector {
+    position: absolute; /* Posiciona o conector de forma absoluta */
+    top: 50%;
+    transform: translateY(-50%);
+    height: 3px;
+    background-color: var(--stepper-line-color);
+    z-index: 1;
+    /* Ajuste para cobrir o gap entre os steps na mesma linha */
+    width: calc(100% + 40px); /* Largura para cobrir o gap de 40px */
+    left: -20px; /* Metade do gap */
+    right: -20px; /* Metade do gap */
+}
+
+.step.completed + .step-connector {
     background-color: var(--stepper-completed-color);
-    border-color: var(--stepper-completed-color);
-    color: white;
+}
+
+/* Esconder conectores quando há quebra de linha para evitar linhas verticais desnecessárias */
+.stepper-container > .step:nth-child(n) + .step-connector {
+    display: none; /* Esconde todos os conectores por padrão para controle manual */
+}
+
+/* Exibir conectores apenas entre steps na mesma linha */
+.stepper-container > .step:not(:last-child) { /* Para todos os steps, exceto o último */
+    margin-right: 40px; /* Adiciona espaçamento à direita da bolinha igual ao gap */
+}
+
+/* Conectores reaparecem para elementos que não são o último e não quebram linha.
+   A lógica de `flex-wrap` e `gap` já lida com o espaçamento.
+   Precisamos de um pseudo-elemento para a linha se o `gap` não for suficiente.
+   Com `justify-content: center` e `flex-wrap: wrap`, o `gap` já deve ser suficiente.
+   Vamos simplificar e remover o `step-connector` como um elemento irmão e usar pseudo-elementos
+   ou uma solução mais robusta se necessário. Por agora, vamos garantir que o flexbox
+   faça o trabalho pesado.
+*/
+
+/* Resetando o estilo de conector para que ele funcione com o flex-wrap */
+/* A solução ideal é que os conectores sejam gerados por JS ou que o layout seja mais robusto.
+   Para o seu caso, o `gap` já faz o trabalho de espaçamento. A linha na imagem
+   parece ser um `border-bottom` ou um `box-shadow` ou um elemento diferente.
+   Vamos remover o elemento `.step-connector` do HTML e controlar a linha com o CSS
+   do `.step` ou um pseudo-elemento.
+
+   Porém, para manter a estrutura atual do HTML e apenas corrigir o CSS,
+   vamos manter o `step-connector` e ajustar. O problema da linha é que ela é um irmão.
+   Se ele quebra a linha, a linha ainda tenta se conectar.
+*/
+
+.step-connector {
+    display: none; /* Oculta completamente os conectores para evitar problemas com flex-wrap */
+}
+
+/* Manter estas regras de cor para o caso de você ter outra forma de exibir a linha */
+.step.completed + .step-connector {
+    background-color: var(--stepper-completed-color);
+}
+
+.step.completed { /* Esta é a regra que foi atualizada para deixar a bolinha verde */
+    background-color: var(--stepper-completed-color); /* Fundo verde */
+    border-color: var(--stepper-completed-color);     /* Borda verde */
+    color: white; /* Texto branco para contraste */
+    box-shadow: 0 0 12px rgba(40, 167, 69, 0.5); /* Sombra verde sutil */
 }
 
 .step.active {
     background-color: var(--stepper-active-color);
     border-color: var(--stepper-active-color);
     color: white;
-    transform: scale(1.1); /* Slightly larger for active step */
-    box-shadow: 0 0 8px rgba(0, 123, 255, 0.4);
+    box-shadow: 0 0 12px rgba(0, 123, 255, 0.5);
 }
 
 .step.delayed {
@@ -545,47 +661,66 @@ body {
     color: white;
 }
 
-.step-label {
+/* Estilo para a Data de Início acima da bolinha */
+.step-start-date {
     position: absolute;
-    top: calc(100% + 5px); /* Position label below the step */
+    bottom: calc(100% + 28px); /* Posiciona acima da bolinha, 28px acima do topo da bolinha */
     left: 50%;
     transform: translateX(-50%);
-    white-space: nowrap; /* Prevent text wrapping */
-    font-size: 0.75em;
+    white-space: nowrap;
+    font-size: 0.8em;
     color: var(--text-muted-color);
     text-align: center;
+    font-style: italic;
+    font-weight: normal; /* Para não ser negrito, se o 'step-label' for */
 }
 
-.step-date {
+/* Estilo para a Data de Fim (reaproveitando o step-date) acima da bolinha, abaixo da data de início */
+.step-date { /* Mantendo o nome original da classe para a data de fim */
     position: absolute;
-    bottom: calc(100% + 5px); /* Position date above the step */
+    bottom: calc(100% + 8px); /* Posiciona 8px acima do topo da bolinha */
     left: 50%;
     transform: translateX(-50%);
-    white-space: nowrap; /* Prevent text wrapping */
-    font-size: 0.7em;
+    white-space: nowrap;
+    font-size: 0.8em;
     color: var(--text-muted-color);
     text-align: center;
+    font-style: italic;
+    font-weight: normal; /* Para não ser negrito */
+}
+
+.step-label {
+    position: absolute;
+    top: calc(100% + 18px); /* Continua abaixo da bolinha */
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap; /* Impede que o texto quebre a linha */
+    font-size: 1.1em; /* Aumentado para 1.1em (o texto do label) */
+    color: var(--text-muted-color);
+    text-align: center;
+    font-weight: 500;
 }
 
 .step.completed .step-label {
-    color: var(--success-color); /* Completed labels can be green */
+    color: var(--success-color);
+    font-weight: bold; /* Adicionado para destacar mais */
 }
 
 .step.active .step-label {
-    color: var(--primary-color); /* Active labels can be blue */
+    color: var(--primary-color);
     font-weight: bold;
 }
 
 .step.delayed .step-label {
-    color: var(--danger-color); /* Delayed labels can be red */
+    color: var(--danger-color);
 }
 
-/* Project Actions Section */
+/* Seção de Ações do Projeto */
 .project-actions {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    align-items: flex-end; /* Align buttons to the right */
+    align-items: flex-end; /* Alinha os botões à direita */
 }
 
 .project-actions button {
@@ -596,11 +731,11 @@ body {
     font-size: 0.9em;
     display: flex;
     align-items: center;
-    justify-content: flex-start; /* Align text/icon to start of button */
+    justify-content: flex-start; /* Alinha texto/ícone ao início do botão */
     gap: 5px;
     transition: background-color 0.3s ease, transform 0.2s ease;
-    width: 100%; /* Make buttons fill the allocated column width */
-    min-width: 90px; /* Ensure a minimum width */
+    width: 100%; /* Faz com que os botões preencham a largura da coluna alocada */
+    min-width: 90px; /* Garante uma largura mínima */
 }
 
 .project-actions button.view-btn {
@@ -613,7 +748,7 @@ body {
 }
 
 .project-actions button.edit-btn {
-    background-color: var(--info-color); /* Changed to info for edit */
+    background-color: var(--info-color); /* Alterado para info para edição */
     color: white;
 }
 .project-actions button.edit-btn:hover {
@@ -794,39 +929,50 @@ body {
     border: 1px solid #f5c6cb;
 }
 
-/* Modal Styles */
+/* --- Estilos de Modal --- */
 .modal {
     display: none;
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw; /* Use 100vw para garantir 100% da largura da viewport */
+    height: 100vh; /* Use 100vh para garantir 100% da altura da viewport */
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     justify-content: center;
     align-items: center;
-    overflow-y: auto;
-    padding: 20px;
+    padding: 0; /* Remova qualquer padding que possa empurrar o conteúdo */
+    margin: 0; /* Remova qualquer margem */
     box-sizing: border-box;
+}
+
+.modal.active { /* Adicionado para a exibição inicial do modal de login */
+    display: flex;
 }
 
 .modal-content {
     background-color: white; /* Cor de fundo branca */
     border-radius: var(--border-radius); /* Bordas arredondadas */
     padding: 25px; /* Espaçamento interno */
-    width: 100%; /* Largura total */
-    max-width: 800px; /* Largura máxima */
-    max-height: 90vh; /* Altura máxima */
-    overflow-y: auto; /* Permitir rolagem vertical se necessário */
+    width: 95%; /* Ocupa 95% da largura da tela */
+    max-width: 1200px; /* Aumentado para melhor aproveitamento em telas maiores. Ajuste este valor se ainda estiver muito grande. */
+    height: auto; /* Altura automática baseada no conteúdo */
+    max-height: 95vh; /* Ocupa até 95% da altura da viewport */
+    overflow-y: auto; /* Permitir rolagem vertical APENAS dentro do modal-content se o conteúdo exceder max-height */
     position: relative; /* Para posicionamento de elementos internos */
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Sombra para dar profundidade */
     transition: transform 0.3s ease; /* Transição suave para transformações */
+    display: flex; /* Habilitar flexbox para layout interno */
+    flex-direction: column; /* Conteúdo em coluna */
 }
 
-/* Efeito de zoom ao abrir a modal */
+/* Efeito de zoom ao abrir o modal */
 .modal-content.show {
     transform: scale(1.05); /* Aumenta ligeiramente o tamanho */
+}
+
+.modal-content.small { /* Para modais menores como login/edição de sub-etapa */
+    max-width: 450px;
 }
 
 .close-modal, .close {
@@ -855,6 +1001,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    flex-grow: 1; /* Permite que o formulário cresça para preencher o espaço restante */
+    overflow-y: auto; /* Adicione rolagem se o conteúdo do formulário for muito grande */
+    padding-right: 15px; /* Para evitar que a barra de rolagem sobreponha o conteúdo */
+    box-sizing: border-box; /* Incluir padding na altura */
 }
 
 .modal label {
@@ -902,9 +1052,25 @@ body {
     transform: translateY(-2px);
 }
 
-/* Estilos para o modal de relatório */
+/* --- Estilos do Modal de Relatório --- */
 #reportModal .modal-content {
-    max-width: 900px;
+    width: 60%; /* Por exemplo, comece com 60% da largura */
+    max-width: 800px; /* E uma largura máxima de 800px */
+    height: auto; /* Mantenha a altura automática no início */
+    max-height: 90vh; /* Ocupa até 90% da altura da viewport */
+    transition: all 0.5s ease-in-out; /* Adicione transição para a expansão suave */
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Nova classe para o modal de relatório quando estiver em tela cheia */
+#reportModal .modal-content.fullscreen-report {
+    width: 98%; /* Torna-o mais largo, quase em tela cheia */
+    max-width: 1400px; /* Ajusta a largura máxima para telas muito grandes, se necessário */
+    height: 98vh; /* Torna-o quase na altura total */
+    max-height: 98vh; /* Garante que não exceda a altura da viewport */
+    overflow: hidden; /* Oculta o estouro no próprio conteúdo do modal, o conteúdo rolará internamente */
 }
 
 .date-filter-group {
@@ -916,7 +1082,10 @@ body {
 }
 
 #reportResult {
-    margin-top: 20px;
+    flex-grow: 1; /* Permite que a área de resultado do relatório ocupe o espaço disponível */
+    overflow-y: auto; /* Habilita a rolagem vertical dentro do resultado do relatório */
+    padding-right: 15px; /* Adiciona algum preenchimento para evitar que a barra de rolagem se sobreponha ao conteúdo */
+    box-sizing: border-box;
 }
 
 .report-summary {
@@ -973,7 +1142,7 @@ body {
     color: white;
 }
 
-.report-table th, 
+.report-table th,
 .report-table td {
     padding: 12px 15px;
     text-align: left;
@@ -1035,7 +1204,7 @@ body {
 }
 
 .btn-download.excel {
-    background-color: #217346; /* Excel green */
+    background-color: #217346; /* Verde Excel */
 }
 .btn-download.excel:hover {
     background-color: #1e6b3e;
@@ -1049,59 +1218,172 @@ body {
     background-color: var(--info-hover-color);
 }
 
-/* Estilos para o modal de edição de projeto */
+/* --- Estilos do Modal de Edição de Projeto --- */
+/* Aplicar estilos para que o modal de edição ocupe a maior parte da tela */
 #editProjectModal .modal-content {
-    max-width: 900px;
+    width: calc(100% - 40px); /* Tenta 100% da largura do modal pai, menos uma margem de 20px de cada lado */
+    max-width: 1200px; /* Reduzi este valor para 1200px. Se ainda estiver muito grande, tente 1000px. */
+    height: calc(100vh - 40px); /* Tenta 100% da altura do modal pai, menos uma margem de 20px de cada lado */
+    max-height: 95vh; /* Mantenha um limite superior para evitar que se estique demais verticalmente */
+    padding: 20px; /* Padding interno do conteúdo */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    overflow: hidden; /* Oculta o scroll do próprio modal-content */
+    box-sizing: border-box; /* Fundamental para padding e borda serem incluídos na largura/altura */
 }
 
+/* O formulário dentro do modal de edição deve ser o elemento que rola */
+#editProjectForm {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Permite que o formulário cresça para preencher o espaço vertical disponível */
+    overflow-y: auto; /* Adicione rolagem se o conteúdo do formulário for muito grande */
+    padding-right: 15px; /* Adicione um padding para a barra de rolagem não sobrepor o conteúdo */
+    box-sizing: border-box; /* Incluir padding na altura */
+}
+
+/* Para as seções do formulário, para que se espalhem verticalmente mas sem forçar scroll desnecessário */
 #editProjectForm .form-section {
-    margin-bottom: 20px;
+    flex-shrink: 0; /* Evita que as seções encolham demais */
+    margin-bottom: 20px; /* Garante espaçamento entre as seções */
 }
 
-/* Responsividade */
+/* Garanta que os inputs e selects dentro do formulário de edição se ajustem */
+#editProjectForm input[type="datetime-local"],
+#editProjectForm input[type="date"],
+#editProjectForm input[type="text"],
+#editProjectForm input[type="number"],
+#editProjectForm select {
+    flex-shrink: 0; /* Evita que encolham */
+    width: 100%; /* Ocupa a largura total do seu contêiner pai flex-item */
+    box-sizing: border-box; /* Garante que padding e border sejam incluídos na largura */
+}
+
+
+/* --- Responsividade Geral --- */
+@media (max-width: 1200px) {
+    /* Reduzir o max-width do modal em telas médias */
+    .modal-content {
+        width: 95%;
+        max-width: 95%; /* Usar porcentagem em vez de pixels fixos para maior flexibilidade */
+    }
+}
+
+
 @media (max-width: 768px) {
     .dashboard .header {
         flex-direction: column;
         align-items: flex-start;
     }
-    
+
     .action-buttons-container {
         margin-left: 0;
         width: 100%;
         justify-content: space-between;
     }
-    
+
     .indicators-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .project-card {
         grid-template-columns: 1fr;
         gap: 15px;
     }
-    
+
     .project-actions {
         flex-direction: row;
         justify-content: space-between;
+        width: 100%; /* Ajuste para preencher a largura total do card */
     }
-    
+
     .project-actions button {
         width: auto;
+        flex-grow: 1; /* Permite que os botões se expandam para preencher o espaço */
     }
-    
+
     .date-filter-group {
         flex-direction: column;
         align-items: flex-start;
     }
-    
+
     .summary-grid {
         grid-template-columns: 1fr;
     }
+
+    .form-row {
+        flex-direction: column; /* Coloca os grupos de formulário em coluna */
+        gap: 10px;
+    }
+
+    .form-group {
+        min-width: unset; /* Remove min-width em telas pequenas */
+        width: 100%;
+    }
+
+    .etapas-grid {
+        grid-template-columns: 1fr; /* Etapas em coluna */
+    }
+
+    /* Ajustes específicos para modais em telas muito pequenas */
+    .modal-content {
+        width: 98%;
+        max-width: 98%; /* Para garantir que caiba em telas muito pequenas */
+        padding: 15px; /* Reduzir padding para mais espaço de conteúdo */
+    }
+
+    #editProjectModal .modal-content,
+    #projectDetailsModal .modal-content { /* Aplicar também aos detalhes */
+        height: 98vh; /* Manter altura para evitar scroll do body */
+        max-height: 98vh;
+    }
+
+    /* Responsividade para o stepper em telas menores */
+    .project-stepper-wrapper {
+        flex-direction: column; /* Em telas pequenas, o stepper ficará em coluna para melhor visualização */
+        align-items: center;
+    }
+
+    .stepper-container {
+        flex-wrap: wrap; /* Permite que as etapas quebrem a linha */
+        justify-content: center; /* Centraliza as etapas quando elas quebram */
+        gap: 15px; /* Adiciona um gap para melhor espaçamento quando quebra */
+        padding: 15px 0; /* Reduz o padding vertical */
+        max-width: 100%; /* Garante que ocupe a largura total */
+    }
+
+    .step {
+        margin: 0; /* Remove margens extras se houver */
+        width: 60px; /* Reduz o tamanho da bolinha */
+        height: 60px; /* Reduz o tamanho da bolinha */
+        font-size: 1.4em; /* Ajusta o tamanho da fonte (o percentual dentro da bolinha) */
+    }
+
+    .step-label {
+        font-size: 0.9em; /* Reduz o tamanho da fonte do label */
+        top: calc(100% + 10px); /* Ajusta a posição do label */
+    }
+
+    /* Ajuste de posição para as datas em telas menores */
+    .step-start-date {
+        bottom: calc(100% + 20px); /* Ajuste a distância em telas pequenas */
+        font-size: 0.7em;
+    }
+    .step-date {
+        bottom: calc(100% + 5px); /* Ajuste a distância em telas pequenas */
+        font-size: 0.7em;
+    }
+
+    .step-connector {
+        display: none; /* Oculta os conectores em telas pequenas se o flex-wrap estiver ativo */
+    }
 }
 
+/* --- Estilos para Sub-Etapas Atrasadas (em .sub-etapa-item) --- */
 .sub-etapa-item.sub-etapa-atrasada {
     border-left: 3px solid var(--danger-color);
-    background-color: rgba(220, 53, 69, 0.05); /* Light red background */
+    background-color: rgba(220, 53, 69, 0.05); /* Fundo vermelho claro */
 }
 
 .sub-etapa-item.sub-etapa-atrasada .sub-etapa-descricao {
@@ -1109,10 +1391,7 @@ body {
     font-weight: bold;
 }
 
-
-
-
-/* Estilos para status das sub-etapas individuais */
+/* --- Estilos para Status Visuais de Sub-Etapas Individuais --- */
 .sub-etapa-item.sub-etapa-atrasada {
     background-color: rgba(220, 53, 69, 0.1); /* Fundo vermelho claro */
     border-left: 4px solid var(--danger-color);
@@ -1132,7 +1411,7 @@ body {
     color: var(--text-muted-color);
 }
 
-/* Indicador visual de atualização */
+/* --- Indicadores de Atualização e Botão de Parar --- */
 .refresh-indicator {
   position: fixed;
   bottom: 10px;
@@ -1145,7 +1424,7 @@ body {
   z-index: 1000;
 }
 
-/* Botão parar atualização */
+/* Botão para parar atualização */
 #stopRefreshButton {
   position: fixed;
   bottom: 20px;
@@ -1153,6 +1432,7 @@ body {
   z-index: 1000;
 }
 
+/* --- Notificações Toast --- */
 /* Wrapper para todas as notificações */
 #notification-wrapper {
     position: fixed;
@@ -1193,28 +1473,15 @@ body {
 }
 
 .notification-message.info {
-    background-color: var(--info-color); /* Você já tem esta variável */
+    background-color: var(--info-color); /* Usando sua variável */
 }
 
 .notification-message.warning {
-    background-color: var(--warning-color); /* Você já tem esta variável */
+    background-color: var(--warning-color); /* Usando sua variável */
     color: var(--text-color); /* Mudar a cor do texto para contraste com amarelo */
 }
 
-/* Etapas tela 3 */
-.etapas-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-}
-
-.etapa-item {
-  background-color: var(--card-bg-color);
-  padding: 15px;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-}
-
+/* --- Estilos de Inputs e Seletores de Data/Hora --- */
 input[type="datetime-local"],
 input[type="text"],
 select {
@@ -1226,7 +1493,7 @@ select {
   box-sizing: border-box;
 }
 
-/*Botão gerar relatório*/
+/* --- Estilos do Botão "Gerar Relatório" --- */
 .button-relatorio {
     background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
     border: 2px solid #007BFF;
@@ -1246,132 +1513,20 @@ select {
     opacity: 0.8;
 }
 
-/*Estilos para login*/
-/* ... existing styles ... */
-
-/* Modal Styles - ensure these handle the new login modal as well */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-    overflow-y: auto;
-    padding: 20px;
-    box-sizing: border-box;
-}
-
-.modal.active { /* Added for the initial display of login modal */
-    display: flex;
-}
-
-.modal-content {
-    background-color: white;
-    border-radius: var(--border-radius);
-    padding: 25px;
-    width: 100%;
-    max-width: 800px;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    transition: transform 0.3s ease;
-}
-
-.modal-content.small { /* For smaller modals like login/edit sub-etapa */
+/* --- Estilos de Login e Logout --- */
+/* Estilos para o modal de login */
+#loginModal .modal-content.small { /* Certifica-se que o modal de login usa o estilo 'small' */
     max-width: 450px;
 }
 
-.modal-content.show {
-    transform: scale(1.05);
-}
-
-.close-modal, .close {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--text-muted-color);
-    transition: color 0.3s ease;
-}
-
-.close-modal:hover, .close:hover {
-    color: var(--danger-color);
-}
-
-.modal h2 {
-    color: var(--primary-color);
-    margin-top: 0;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--divider-color);
-    padding-bottom: 10px;
-}
-
-.modal form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.modal label {
-    font-weight: bold;
-    color: var(--text-color);
-    margin-bottom: 5px;
-    display: block;
-}
-
-.modal input[type="text"],
-.modal input[type="number"],
-.modal input[type="password"],
-.modal input[type="date"],
-.modal input[type="datetime-local"],
-.modal select {
-    padding: 10px 12px;
-    border: 1px solid var(--divider-color);
-    border-radius: var(--border-radius);
-    font-size: 1em;
-    outline: none;
-    transition: border-color 0.3s ease;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.modal input:focus,
-.modal select:focus {
-    border-color: var(--primary-color);
-}
-
-.modal button[type="submit"] {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 1em;
-    margin-top: 10px;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-}
-
-.modal button[type="submit"]:hover {
-    background-color: var(--primary-hover-color);
-    transform: translateY(-2px);
-}
-
-/* Status message for login form */
+/* Mensagem de status para o formulário de login */
 .status-message {
     text-align: center;
     padding: 10px;
     border-radius: var(--border-radius);
     margin-top: 15px;
     font-weight: bold;
-    display: block; /* Always visible for login feedback */
+    display: block; /* Sempre visível para feedback de login */
 }
 
 .status-message.success {
@@ -1386,9 +1541,9 @@ select {
     border: 1px solid #f5c6cb;
 }
 
-/* Additions for logout button */
+/* Adições para o botão de logout */
 #logoutButton {
-    background-color: #f44336; /* Red for logout */
+    background-color: #f44336; /* Vermelho para logout */
     color: white;
     border: none;
     padding: 10px 20px;
@@ -1406,49 +1561,139 @@ select {
     transform: translateY(-2px);
 }
 
-/* NEW STYLES FOR PROJECT DETAILS MODAL */
+/* --- Estilos do Modal de Detalhes do Projeto --- */
 #projectDetailsModal .modal-content {
-    max-width: 700px; /* Adjust max-width for project details */
-    padding: 30px;
+    /* Ajustes para preencher a tela similar ao modal de edição */
+    width: calc(100% - 40px); /* Ocupa a largura do modal pai com margens */
+    max-width: 1200px; /* Limite máximo para telas muito grandes */
+    height: calc(100vh - 40px); /* Ocupa a altura da viewport com margens */
+    max-height: 95vh; /* Garante que não exceda 95% da altura da viewport */
+    padding: 25px; /* Padding interno */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    overflow: hidden; /* Oculta o scroll do próprio modal-content (a rolagem será no .project-details-container) */
+    box-sizing: border-box;
 }
 
-.project-details h3 {
+/* Ajuste para o conteúdo que vai rolar dentro do modal de detalhes */
+#projectDetailsContent {
+    flex-grow: 1; /* Permite que o conteúdo cresça para preencher o espaço restante */
+    overflow-y: auto; /* Adicione rolagem se o conteúdo for muito grande */
+    padding-right: 15px; /* Adicione um padding para a barra de rolagem não sobrepor o conteúdo */
+    box-sizing: border-box;
+}
+
+/* Estilo para o título principal dentro do modal de detalhes */
+#projectDetailsModal h2 {
     text-align: center;
     color: var(--primary-color);
+    margin-top: 0;
     margin-bottom: 25px;
-    font-size: 1.8em;
+    font-size: 2em;
     padding-bottom: 10px;
-    border-bottom: 2px solid var(--primary-color);
+    border-bottom: 2px solid var(--primary-color); /* Linha mais grossa para o título principal */
+    flex-shrink: 0; /* Impede que o cabeçalho encolha quando o conteúdo rola */
 }
 
-.details-section {
-    background-color: #f8f9fa;
+/* Estilo para o nome do projeto no cabeçalho dos detalhes */
+.project-details-header {
+    flex-shrink: 0; /* Impede que o cabeçalho encolha */
+}
+.project-details-header h3 {
+    text-align: center;
+    color: var(--text-color); /* Cor mais neutra para o nome do projeto em detalhes */
+    margin-bottom: 25px;
+    font-size: 1.8em; /* Tamanho ligeiramente menor que o título do modal, mas ainda grande */
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--divider-color); /* Linha mais suave */
+}
+
+/* Estilo para as seções de detalhes (Informações Gerais, Equipe, Cronograma) */
+.project-details-section {
+    background-color: #f8f9fa; /* Fundo levemente cinza */
     border-radius: var(--border-radius);
     padding: 18px 20px;
     margin-bottom: 20px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    border-left: 5px solid var(--info-color); /* A different border color */
+    border-left: 5px solid var(--info-color); /* Uma cor de borda diferente, como azul claro */
+    flex-shrink: 0; /* Importante para que as seções não encolham e o conteúdo rolável seja o do #projectDetailsContent */
 }
 
-.details-section h4 {
-    color: var(--primary-color);
+/* Estilo para os títulos de cada seção (Informações Gerais, Equipe, Cronograma) */
+.project-details-section h4 {
+    color: var(--primary-color); /* Cor principal para os títulos das seções */
     margin-top: 0;
     margin-bottom: 12px;
-    font-size: 1.2em;
-    border-bottom: 1px dashed var(--divider-color); /* Dashed line */
+    font-size: 1.2em; /* Tamanho da fonte para os títulos das seções */
+    border-bottom: 1px dashed var(--divider-color); /* Linha tracejada suave */
     padding-bottom: 8px;
 }
 
-.details-section p {
+/* Estilo para os parágrafos de detalhes (como a equipe) */
+.project-details-section p {
     margin: 8px 0;
     font-size: 1em;
     line-height: 1.5;
+    color: var(--text-color); /* Cor do texto padrão */
 }
 
-.details-section p strong {
-    color: var(--text-color);
-    font-weight: 600;
+/* Estilo para os labels (negrito) dentro das seções de detalhes */
+.project-details-section p strong,
+.info-label { /* Adicionado info-label para consistência */
+    color: var(--text-color); /* Cor mais escura para os labels */
+    font-weight: 600; /* Mais negrito */
+    margin-right: 5px; /* Pequeno espaçamento após o label */
 }
+
+/* Estilo para os valores de informações gerais */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Por padrão, uma coluna */
+    gap: 10px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between; /* Alinha label à esquerda, valor à direita */
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px dotted var(--divider-color); /* Linha pontilhada para separar itens */
+}
+
+.info-item:last-child {
+    border-bottom: none; /* Remove a linha do último item */
+}
+
+.info-value {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+
+/* Estilos para o status dentro das informações gerais (como ATRASADO) */
+.status-completed {
+    color: var(--success-color); /* Verde para concluído */
+    font-weight: bold;
+}
+
+.status-active, .status-in-progress { /* Azul para ativo/em andamento */
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.status-delayed { /* Vermelho para atrasado */
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+.status-pending { /* Cinza para pendente */
+    color: var(--text-muted-color);
+    font-style: italic;
+}
+
+
+/* ... (Mantenha a tabela .details-table e seus estilos) ... */
 
 .details-table {
     width: 100%;
@@ -1477,34 +1722,15 @@ select {
     background-color: rgba(0, 123, 255, 0.05);
 }
 
-.status-completed {
-    color: var(--success-color);
-    font-weight: bold;
-}
-
-.status-active {
-    color: var(--primary-color);
-    font-weight: bold;
-}
-
-.status-delayed {
-    color: var(--danger-color);
-    font-weight: bold;
-}
-
-.status-pending {
-    color: var(--text-muted-color);
-    font-style: italic;
-}
-
+/* Estilos para o botões do modal */
 .modal-buttons {
     display: flex;
-    justify-content: flex-end; /* Align to the right */
+    justify-content: flex-end; /* Alinha à direita */
     margin-top: 25px;
     gap: 10px;
+    flex-shrink: 0; /* Impede que os botões encolham quando o conteúdo rola */
 }
 
-/* For the close button specifically in modal-buttons */
 .modal-buttons .close-modal-btn {
     background-color: var(--secondary-color);
     color: white;
@@ -1521,14 +1747,22 @@ select {
     transform: translateY(-2px);
 }
 
-/* Style for sub-etapa list in its modal */
+/* Responsividade para o grid de informações gerais */
+@media (min-width: 600px) {
+    .info-grid {
+        grid-template-columns: repeat(2, 1fr); /* Em telas maiores, duas colunas */
+    }
+}
+
+/* --- Estilos do Modal de Sub-Etapas --- */
+/* Estilo para a lista de sub-etapas em seu modal */
 .sub-etapas-list {
     margin-top: 20px;
     border: 1px solid var(--divider-color);
     border-radius: var(--border-radius);
     padding: 15px;
     background-color: #fefefe;
-    max-height: 300px; /* Fixed height for scrolling */
+    max-height: 300px; /* Altura fixa para rolagem */
     overflow-y: auto;
 }
 
@@ -1600,7 +1834,7 @@ select {
 }
 
 .sub-etapa-actions button.uncomplete-btn {
-    background-color: var(--warning-color); /* Using warning for uncomplete */
+    background-color: var(--warning-color); /* Usando warning para 'não concluída' */
     color: var(--text-color);
 }
 .sub-etapa-actions button.uncomplete-btn:hover {
@@ -1622,7 +1856,7 @@ select {
     padding: 20px;
 }
 
-/* Edit sub-etapa modal */
+/* --- Estilos do Modal de Edição de Sub-Etapas --- */
 #editSubEtapaModal .modal-content {
     max-width: 450px;
 }
@@ -1648,8 +1882,9 @@ select {
     margin-top: 20px;
 }
 
+/* --- Campo Desabilitado --- */
 .disabled-field {
-    background-color: #e9ecef; /* Light grey background for disabled fields */
+    background-color: #e9ecef; /* Fundo cinza claro para campos desabilitados */
     cursor: not-allowed;
     color: #6c757d;
 }

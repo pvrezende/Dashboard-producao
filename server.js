@@ -1,10 +1,11 @@
+// server.js
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs'); // Não está sendo usado para hashing, mas o import está presente.
 const jwt = require('jsonwebtoken');
 
 
@@ -37,7 +38,7 @@ db.connect(err => {
     console.log('Conectado ao banco de dados.');
 });
 
-// Secret for JWT (should be in .env in a real application)
+// Chave Secreta para JWT (deve ser armazenada em variáveis de ambiente em produção)
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
 // Middleware de autenticação
@@ -54,7 +55,7 @@ function authenticateToken(req, res, next) {
     });
 }
 
-// Middleware de autorização
+// Middleware de autorização baseado no papel do usuário
 function authorizeRole(roles) {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
@@ -69,7 +70,7 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
 
-// New: Login Endpoint
+// Endpoint: Login
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
 
@@ -86,6 +87,7 @@ app.post('/api/login', async (req, res) => {
 
         const user = users[0];
 
+        // Lógica original: comparação direta de senha (não hashed)
         const passwordMatch = (password === user.password_hash);
 
         if (!passwordMatch) {
@@ -101,32 +103,26 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Endpoint: Indicadores (Dashboard Principal) - Visualização para todos (aberto)
+// Endpoint: Indicadores (Dashboard Principal) - Acesso liberado para todos
 app.get('/api/indicadores', (req, res) => {
     const { selectedDate } = req.query;
 
-    let queryProducao = `SELECT HOUR(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) as hora, SUM(qtd_dados) as total_pecas FROM dados_hora_a_hora`;
+    let queryProducao = `SELECT HOUR(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) as hora, SUM(CAST(qtd_dados AS UNSIGNED)) as total_pecas FROM dados_hora_a_hora`;
     let queryMeta = `SELECT meta FROM meta_dia WHERE STR_TO_DATE(data_hora, '%d/%m/%Y') = CURDATE()`;
-    let queryTotalPecas = `SELECT SUM(qtd_dados) as totalPecasProduzidas FROM dados_hora_a_hora`;
-    let queryAprovados = `SELECT SUM(qtd_dados) as totalAprovados FROM dados_hora_a_hora`;
-    let queryReprovados = `SELECT SUM(qtd) as totalReprovados FROM eficiencia WHERE flag = 'rejeitada'`;
+    let queryTotalPecas = `SELECT SUM(CAST(qtd_dados AS UNSIGNED)) as totalPecasProduzidas FROM dados_hora_a_hora`;
+    let queryReprovados = `SELECT SUM(CAST(qtd AS UNSIGNED)) as totalReprovados FROM eficiencia WHERE flag = 'rejeitada'`;
 
     const queryParams = [];
 
     if (selectedDate) {
-        // Here, selectedDate comes from the frontend's <input type="date"> which is YYYY-MM-DD.
-        // So, STR_TO_DATE(?, '%Y-%m-%d') is correct for parsing selectedDate for comparison.
         queryProducao += ` WHERE DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = STR_TO_DATE(?, '%Y-%m-%d')`;
         queryTotalPecas += ` WHERE DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = STR_TO_DATE(?, '%Y-%m-%d')`;
-        queryAprovados += ` WHERE DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = STR_TO_DATE(?, '%Y-%m-%d')`;
         queryReprovados += ` AND DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = STR_TO_DATE(?, '%Y-%m-%d')`;
-        // For meta_dia, we're comparing the stored DD/MM/YYYY string to a date parsed from YYYY-MM-DD input.
         queryMeta = `SELECT meta FROM meta_dia WHERE STR_TO_DATE(data_hora, '%d/%m/%Y') = STR_TO_DATE(?, '%Y-%m-%d')`;
-        queryParams.push(selectedDate, selectedDate, selectedDate, selectedDate, selectedDate);
+        queryParams.push(selectedDate, selectedDate, selectedDate, selectedDate);
     } else {
         queryProducao += ` WHERE DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = CURDATE()`;
         queryTotalPecas += ` WHERE DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = CURDATE()`;
-        queryAprovados += ` WHERE DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = CURDATE()`;
         queryReprovados += ` AND DATE(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s')) = CURDATE()`;
     }
 
@@ -151,34 +147,22 @@ app.get('/api/indicadores', (req, res) => {
                     return res.status(500).json({ error: 'Erro ao buscar total de peças.' });
                 }
 
-                db.query(queryAprovados, queryParams.slice(2, 3), (err, aprovadosResult) => {
+                db.query(queryReprovados, queryParams.slice(2, 3), (err, reprovadosResult) => {
                     if (err) {
-                        console.error('Erro ao buscar total de aprovados:', err);
-                        return res.status(500).json({ error: 'Erro ao buscar total de aprovados.' });
+                        console.error('Erro ao buscar total de reprovados:', err);
+                        return res.status(500).json({ error: 'Erro ao buscar total de reprovados.' });
                     }
 
-                    db.query(queryReprovados, queryParams.slice(3, 4), (err, reprovadosResult) => {
-                        if (err) {
-                            console.error('Erro ao buscar total de reprovados:', err);
-                            return res.status(500).json({ error: 'Erro ao buscar total de reprovados.' });
-                        }
+                    const totalPecasProduzidas = Number(totalPecasResult[0]?.totalPecasProduzidas) || 0;
+                    const totalReprovados = Number(reprovadosResult[0]?.totalReprovados) || 0;
+                    const totalAprovados = totalPecasProduzidas - totalReprovados;
 
-                        const totalPecasProduzidas = totalPecasResult[0]?.totalPecasProduzidas || 0;
-                        const totalAprovados = aprovadosResult[0]?.totalAprovados || 0;
-                        const totalReprovados = reprovadosResult[0]?.totalReprovados || 0;
-
-                        const percentAprovados = totalPecasProduzidas > 0 ? (totalAprovados / totalPecasProduzidas) * 100 : 0;
-                        const percentReprovados = (totalAprovados + totalReprovados) > 0 ? (totalReprovados / (totalAprovados + totalReprovados)) * 100 : 0;
-
-                        res.json({
-                            producaoPorHora,
-                            metaDiaria: metaDiaria.length > 0 ? metaDiaria : [{ meta: 0 }],
-                            totalPecasProduzidas,
-                            totalAprovados,
-                            totalReprovados,
-                            percentAprovados,
-                            percentReprovados
-                        });
+                    res.json({
+                        producaoPorHora,
+                        metaDiaria: metaDiaria.length > 0 ? metaDiaria : [{ meta: 0 }],
+                        totalPecasProduzidas,
+                        totalAprovados,
+                        totalReprovados
                     });
                 });
             });
@@ -186,16 +170,14 @@ app.get('/api/indicadores', (req, res) => {
     });
 });
 
-// Endpoint: Update daily meta - Apenas para Diretoria e Coordenador
+// Endpoint: Atualizar meta diária - Apenas para Diretoria e Coordenador
 app.put('/api/meta_dia', authenticateToken, authorizeRole(['diretoria', 'coordenador']), (req, res) => {
-    const { date, meta } = req.body; // 'date' is expected to be in 'DD/MM/YYYY' format from client
+    const { date, meta } = req.body;
 
     if (!date || meta === undefined || meta < 0) {
         return res.status(400).json({ error: 'Data e meta válidas são obrigatórias.' });
     }
 
-    // First, check if a meta for that specific date already exists.
-    // We match on the exact string representation because the column is VARCHAR.
     const checkSql = `SELECT id FROM meta_dia WHERE data_hora = ?`;
     db.query(checkSql, [date], (err, results) => {
         if (err) {
@@ -204,7 +186,6 @@ app.put('/api/meta_dia', authenticateToken, authorizeRole(['diretoria', 'coorden
         }
 
         if (results.length > 0) {
-            // Meta for this date already exists, UPDATE it
             const updateSql = `UPDATE meta_dia SET meta = ? WHERE id = ?`;
             db.query(updateSql, [meta, results[0].id], (err, updateResult) => {
                 if (err) {
@@ -214,8 +195,6 @@ app.put('/api/meta_dia', authenticateToken, authorizeRole(['diretoria', 'coorden
                 res.json({ message: 'Meta diária atualizada com sucesso.' });
             });
         } else {
-            // No meta for this date, INSERT a new one
-            // We directly insert the DD/MM/YYYY string as it's already formatted correctly from the client.
             const insertSql = `INSERT INTO meta_dia (data_hora, meta) VALUES (?, ?)`;
             db.query(insertSql, [date, meta], (err, insertResult) => {
                 if (err) {
@@ -232,7 +211,7 @@ app.put('/api/meta_dia', authenticateToken, authorizeRole(['diretoria', 'coorden
 // Endpoint: Registrar Produção - Apenas para Diretoria, Coordenador e Líder
 app.post('/api/producao', authenticateToken, authorizeRole(['diretoria', 'coordenador', 'lider']), (req, res) => {
     const { qtdDados, dataHora } = req.body;
-    if (!qtdDados || !dataHora) { // qtdDados can be 0, but needs to be provided
+    if (qtdDados === undefined || qtdDados < 0 || !dataHora) {
         return res.status(400).json({ error: 'Quantidade de dados e data/hora são obrigatórios.' });
     }
 
@@ -248,14 +227,12 @@ app.post('/api/producao', authenticateToken, authorizeRole(['diretoria', 'coorde
 
 // Endpoint: Registrar Eficiência (Peças Reprovadas) - Apenas para Diretoria, Coordenador e Líder
 app.post('/api/eficiencia', authenticateToken, authorizeRole(['diretoria', 'coordenador', 'lider']), (req, res) => {
-    const { qtd, flag, dataHora } = req.body; // 'dataHora' is already 'DD/MM/YYYY HH:mm:ss' from client
+    const { qtd, flag, dataHora } = req.body;
     
-    // Validate inputs. 'qtd' should be a number >= 0. 'flag' must be 'rejeitada'. 'dataHora' is required.
     if (qtd === undefined || qtd < 0 || !flag || flag !== 'rejeitada' || !dataHora) {
         return res.status(400).json({ error: 'Quantidade, flag (rejeitada) e data/hora válidas são obrigatórias para registrar eficiência.' });
     }
 
-    // Insert directly the formatted dataHora string into the VARCHAR column
     const sql = 'INSERT INTO eficiencia (qtd, flag, data_hora) VALUES (?, ?, ?)';
     db.query(sql, [qtd, flag, dataHora], (err, result) => {
         if (err) {
@@ -266,7 +243,7 @@ app.post('/api/eficiencia', authenticateToken, authorizeRole(['diretoria', 'coor
     });
 });
 
-// Endpoint: Gerar Relatório de Produção por Período - Visualização para todos (aberto)
+// Endpoint: Gerar Relatório de Produção por Período - Acesso liberado para todos
 app.get('/api/relatorio', (req, res) => {
     const { startDate, endDate } = req.query;
 
@@ -285,7 +262,7 @@ app.get('/api/relatorio', (req, res) => {
         ProducedData AS (
             SELECT
                 DATE_FORMAT(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s'), '%Y-%m-%d') AS produced_date,
-                SUM(qtd_dados) AS daily_produzido_total_boxes
+                SUM(CAST(qtd_dados AS UNSIGNED)) AS daily_produzido_total_boxes_raw
             FROM
                 dados_hora_a_hora
             WHERE
@@ -296,7 +273,7 @@ app.get('/api/relatorio', (req, res) => {
         RejectedData AS (
             SELECT
                 DATE_FORMAT(STR_TO_DATE(data_hora, '%d/%m/%Y %H:%i:%s'), '%Y-%m-%d') AS rejected_date,
-                SUM(qtd) AS daily_reprovado_total_pieces
+                SUM(CAST(qtd AS UNSIGNED)) AS daily_reprovado_total_pieces_raw
             FROM
                 eficiencia
             WHERE
@@ -306,9 +283,9 @@ app.get('/api/relatorio', (req, res) => {
         )
         SELECT
             DS.report_date,
-            COALESCE(MAX(PD.daily_produzido_total_boxes), 0) * 12 AS total_produzido_dia,
-            COALESCE(MAX(RD.daily_reprovado_total_pieces), 0) AS total_reprovado_dia,
-            COALESCE(MAX(MD.meta), 0) * 12 AS meta_dia_total
+            COALESCE(MAX(PD.daily_produzido_total_boxes_raw), 0) AS total_produzido_dia,
+            COALESCE(MAX(RD.daily_reprovado_total_pieces_raw), 0) AS total_reprovado_dia,
+            COALESCE(MAX(MD.meta), 0) AS meta_dia_total
         FROM
             DateSeries DS
         LEFT JOIN
@@ -336,94 +313,161 @@ app.get('/api/relatorio', (req, res) => {
     });
 });
 
-// Endpoint: Obter todos os projetos - Visualização para todos (aberto)
+// Endpoint: Obter todos os projetos - Acesso liberado para todos
 app.get("/api/projetos", async (req, res) => {
+    let sql = "SELECT * FROM projetos";
+    const params = [];
+
     try {
-        const [projetos] = await db.promise().query("SELECT * FROM projetos");
+        const [projetos] = await db.promise().query(sql, params);
 
         if (projetos.length === 0) {
             return res.json([]);
         }
 
         const projetosComDados = await Promise.all(projetos.map(async (projeto) => {
+            // Busca as etapas customizadas para o projeto
+            const [customEtapas] = await db.promise().query(
+                "SELECT id, ordem, nome_etapa, data_inicio, data_fim, duracao_planejada_dias FROM projeto_etapas WHERE projeto_id = ? ORDER BY ordem",
+                [projeto.id]
+            );
+
+            // Busca todas as sub-etapas para o projeto
             const [subEtapas] = await db.promise().query(
-                "SELECT etapa_principal, concluida, data_prevista_conclusao FROM sub_etapas WHERE projeto_id = ?",
+                "SELECT projeto_etapa_id, concluida, data_prevista_conclusao, data_conclusao FROM sub_etapas WHERE projeto_id = ?",
                 [projeto.id]
             );
 
             const percentuaisPorEtapa = {};
             const atrasosPorEtapa = {};
+            const statusPorEtapa = {};
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const totalStages = 7;
-            const currentStageNumber = parseInt(projeto.etapa_atual);
+            if (customEtapas.length === 0) {
+                // Se não há etapas customizadas, o projeto é considerado 0% concluído e pendente.
+                projeto.percentual_concluido = 0.00;
+                projeto.status = "pendente";
+                return { ...projeto, customEtapas: [], percentuaisPorEtapa: {}, atrasosPorEtapa: {}, statusPorEtapa: {} };
+            }
 
-            let completedMainStagesCount = 0;
-
-            for (let i = 1; i <= totalStages; i++) {
-                const subEtapasDaEtapa = subEtapas.filter(se => se.etapa_principal === i);
+            for (const etapa of customEtapas) {
+                const subEtapasDaEtapa = subEtapas.filter(se => se.projeto_etapa_id === etapa.id);
                 const totalSubEtapas = subEtapasDaEtapa.length;
                 let percentage = 0;
                 let isDelayedForThisStage = false;
+                let stageStatus = "pendente";
 
                 if (totalSubEtapas === 0) {
-                    if (currentStageNumber > i) {
-                        percentage = 100;
+                    // Lógica para etapas sem sub-etapas (baseada nas datas da própria etapa customizada)
+                    const dataInicioEtapa = etapa.data_inicio ? new Date(etapa.data_inicio) : null;
+                    const dataFimEtapa = etapa.data_fim ? new Date(etapa.data_fim) : null;
+
+                    if (dataInicioEtapa && dataFimEtapa) {
+                        if (today < dataInicioEtapa) {
+                            percentage = 0;
+                            stageStatus = "pendente";
+                        } else if (today >= dataFimEtapa) {
+                            percentage = 100;
+                            stageStatus = "concluído";
+                        } else {
+                            const totalTime = dataFimEtapa.getTime() - dataInicioEtapa.getTime();
+                            const elapsedTime = today.getTime() - dataInicioEtapa.getTime();
+                            percentage = Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
+                            stageStatus = "andamento";
+                        }
+                    } else if (dataFimEtapa && today >= dataFimEtapa) {
+                        percentage = 100; // Se a data final passou e não tem sub-etapas, considera concluída
+                        stageStatus = "concluído";
+                    } else if (dataInicioEtapa && today >= dataInicioEtapa) {
+                        percentage = 50; // Assume 50% se iniciado, mas sem data final ou sub-tarefas
+                        stageStatus = "andamento";
                     } else {
                         percentage = 0;
-                        if (currentStageNumber === i && projeto[`data_fim_etapa${i}`]) {
-                             const stepDeadline = new Date(projeto[`data_fim_etapa${i}`]);
-                             stepDeadline.setHours(23, 59, 59, 999);
-                             if (today > stepDeadline) {
-                                 isDelayedForThisStage = true;
-                             }
-                        }
+                        stageStatus = "pendente";
+                    }
+
+                    if (dataFimEtapa && today > dataFimEtapa && percentage < 100) {
+                        isDelayedForThisStage = true;
+                        stageStatus = "atrasado";
                     }
                 } else {
+                    // Lógica para etapas COM sub-etapas
                     const concluidas = subEtapasDaEtapa.filter(se => se.concluida).length;
                     percentage = (concluidas / totalSubEtapas) * 100;
 
-                    if (percentage < 100) {
-                        const hasDelayedSubTask = subEtapasDaEtapa.some(subTask => {
-                            if (!subTask.concluida && subTask.data_prevista_conclusao) {
-                                const subTaskDueDate = new Date(subTask.data_prevista_conclusao);
-                                subTaskDueDate.setHours(23, 59, 59, 999);
-                                return today > subTaskDueDate;
-                            }
-                            return false;
-                        });
+                    const hasDelayedSubTask = subEtapasDaEtapa.some(subTask => {
+                        if (!subTask.concluida && subTask.data_prevista_conclusao) {
+                            const subTaskDueDate = new Date(subTask.data_prevista_conclusao);
+                            subTaskDueDate.setHours(0, 0, 0, 0);
+                            return today > subTaskDueDate;
+                        }
+                        return false;
+                    });
+                    isDelayedForThisStage = hasDelayedSubTask;
 
-                        isDelayedForThisStage = hasDelayedSubTask;
+                    const hasInProgressSubTask = subEtapasDaEtapa.some(subTask => {
+                        if (!subTask.concluida) {
+                            if (subTask.data_prevista_conclusao) {
+                                const subTaskDueDate = new Date(subTask.data_prevista_conclusao);
+                                subTaskDueDate.setHours(0,0,0,0);
+                                return today <= subTaskDueDate;
+                            }
+                            return true; // Não tem data prevista, mas não está concluída, então está em andamento
+                        }
+                        return false;
+                    });
+
+                    if (percentage === 100) {
+                        stageStatus = "concluído";
+                    } else if (isDelayedForThisStage) {
+                        stageStatus = "atrasado";
+                    } else if (percentage > 0 || hasInProgressSubTask) {
+                        stageStatus = "andamento";
                     } else {
-                        isDelayedForThisStage = false;
+                        stageStatus = "pendente";
                     }
                 }
-
-                percentuaisPorEtapa[i] = percentage;
-                atrasosPorEtapa[i] = isDelayedForThisStage;
-
-                if (percentage === 100) {
-                    completedMainStagesCount++;
+                
+                percentuaisPorEtapa[etapa.id] = parseFloat(percentage.toFixed(2));
+                atrasosPorEtapa[etapa.id] = isDelayedForThisStage;
+                statusPorEtapa[etapa.id] = stageStatus;
+            }
+            
+            // Calcula o percentual de conclusão geral do projeto como a média das porcentagens de cada etapa
+            let sumOfStagePercentages = 0;
+            let totalStagesConsidered = 0;
+            for (const etapa of customEtapas) {
+                sumOfStagePercentages += (percentuaisPorEtapa[etapa.id] || 0);
+                totalStagesConsidered++;
+            }
+            let overallPercentConcluido = totalStagesConsidered > 0 ? sumOfStagePercentages / totalStagesConsidered : 0;
+            projeto.percentual_concluido = parseFloat(overallPercentConcluido.toFixed(2));
+            
+            // Determina o status geral do projeto
+            let projetoStatus = "pendente";
+            const allStagesCompleted = customEtapas.length > 0 && Object.values(percentuaisPorEtapa).every(p => p === 100);
+            
+            if (allStagesCompleted) {
+                projetoStatus = "concluído";
+            } else {
+                const anyStageDelayed = Object.values(atrasosPorEtapa).some(d => d === true);
+                if (anyStageDelayed) {
+                    projetoStatus = "atrasado";
+                } else {
+                    const anyStageInProgress = Object.values(statusPorEtapa).some(s => s === 'andamento');
+                    const isWithinProjectDates = projeto.data_inicio && projeto.data_fim && 
+                                              today >= new Date(projeto.data_inicio) && 
+                                              today <= new Date(projeto.data_fim);
+                    
+                    if (anyStageInProgress || overallPercentConcluido > 0 || isWithinProjectDates) {
+                        projetoStatus = "andamento";
+                    }
                 }
             }
-
-            let overallPercentConcluido = (completedMainStagesCount / totalStages) * 100;
-            if (completedMainStagesCount === totalStages) {
-                overallPercentConcluido = 100;
-            }
-            projeto.percentual_concluido = overallPercentConcluido.toFixed(2);
-
-            let isProjectOverallDelayed = false;
-            if (projeto.data_fim) {
-                const projectOverallDeadline = new Date(projeto.data_fim);
-                projectOverallDeadline.setHours(23, 59, 59, 999);
-                if (today > projectOverallDeadline && overallPercentConcluido < 100) {
-                    isProjectOverallDelayed = true;
-                }
-            }
-
-            return { ...projeto, percentuaisPorEtapa, atrasosPorEtapa };
+            projeto.status = projetoStatus;
+            
+            return { ...projeto, customEtapas, percentuaisPorEtapa, atrasosPorEtapa, statusPorEtapa };
         }));
 
         res.json(projetosComDados);
@@ -434,35 +478,282 @@ app.get("/api/projetos", async (req, res) => {
     }
 });
 
-// Endpoint: Obter projeto por ID - Visualização para todos (aberto)
-app.get('/api/projetos/:id', (req, res) => {
+// Endpoint: Obter projeto por ID - Acesso liberado para todos
+app.get('/api/projetos/:id', async (req, res) => {
     const { id } = req.params;
-    db.query('SELECT * FROM projetos WHERE id = ?', [id], (err, results) => {
-        if (err) {
-            console.error('Erro ao buscar projeto:', err);
-            return res.status(500).json({ error: 'Erro ao buscar projeto no banco de dados.' });
-        }
-        if (results.length === 0) {
+    
+    try {
+        const [projetoResults] = await db.promise().query('SELECT * FROM projetos WHERE id = ?', [id]);
+        
+        if (projetoResults.length === 0) {
             return res.status(404).json({ error: 'Projeto não encontrado.' });
         }
-        res.json(results[0]);
-    });
+        
+        const projeto = projetoResults[0];
+        
+        // Busca as etapas customizadas para o projeto
+        const [customEtapas] = await db.promise().query(
+            "SELECT id, ordem, nome_etapa, data_inicio, data_fim, duracao_planejada_dias FROM projeto_etapas WHERE projeto_id = ? ORDER BY ordem",
+            [projeto.id]
+        );
+
+        // Busca todas as sub-etapas para o projeto
+        const [subEtapas] = await db.promise().query(
+            "SELECT projeto_etapa_id, concluida, data_prevista_conclusao, data_conclusao FROM sub_etapas WHERE projeto_id = ?",
+            [projeto.id]
+        );
+        
+        const percentuaisPorEtapa = {};
+        const atrasosPorEtapa = {};
+        const statusPorEtapa = {};
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (customEtapas.length === 0) {
+             projeto.percentual_concluido = 0.00;
+             projeto.status = "pendente";
+             return res.json({ ...projeto, customEtapas: [], percentuaisPorEtapa: {}, atrasosPorEtapa: {}, statusPorEtapa: {} });
+        }
+
+        for (const etapa of customEtapas) {
+            const subEtapasDaEtapa = subEtapas.filter(se => se.projeto_etapa_id === etapa.id);
+            const totalSubEtapas = subEtapasDaEtapa.length;
+            let percentage = 0;
+            let isDelayedForThisStage = false;
+            let stageStatus = "pendente";
+            
+            if (totalSubEtapas === 0) {
+                const dataInicioEtapa = etapa.data_inicio ? new Date(etapa.data_inicio) : null;
+                const dataFimEtapa = etapa.data_fim ? new Date(etapa.data_fim) : null;
+                
+                if (dataInicioEtapa && dataFimEtapa) {
+                    if (today < dataInicioEtapa) {
+                        percentage = 0;
+                        stageStatus = "pendente";
+                    } else if (today >= dataFimEtapa) {
+                        percentage = 100;
+                        stageStatus = "concluído";
+                    } else {
+                        const totalTime = dataFimEtapa.getTime() - dataInicioEtapa.getTime();
+                        const elapsedTime = today.getTime() - dataInicioEtapa.getTime();
+                        percentage = Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
+                        stageStatus = "andamento";
+                    }
+                } else if (dataFimEtapa && today >= dataFimEtapa) {
+                    percentage = 100;
+                    stageStatus = "concluído";
+                } else if (dataInicioEtapa && today >= dataInicioEtapa) {
+                    percentage = 50;
+                    stageStatus = "andamento";
+                } else {
+                    percentage = 0;
+                    stageStatus = "pendente";
+                }
+
+                if (dataFimEtapa && today > dataFimEtapa && percentage < 100) {
+                    isDelayedForThisStage = true;
+                    stageStatus = "atrasado";
+                }
+            } else {
+                const concluidas = subEtapasDaEtapa.filter(se => se.concluida).length;
+                percentage = (concluidas / totalSubEtapas) * 100;
+                
+                const hasDelayedSubTask = subEtapasDaEtapa.some(subTask => {
+                    if (!subTask.concluida && subTask.data_prevista_conclusao) {
+                        const subTaskDueDate = new Date(subTask.data_prevista_conclusao);
+                        subTaskDueDate.setHours(0, 0, 0, 0);
+                        return today > subTaskDueDate;
+                    }
+                    return false;
+                });
+                isDelayedForThisStage = hasDelayedSubTask;
+                
+                const hasInProgressSubTask = subEtapasDaEtapa.some(subTask => {
+                    if (!subTask.concluida) {
+                        if (subTask.data_prevista_conclusao) {
+                            const subTaskDueDate = new Date(subTask.data_prevista_conclusao);
+                            subTaskDueDate.setHours(0,0,0,0);
+                            return today <= subTaskDueDate;
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+                
+                if (percentage === 100) {
+                    stageStatus = "concluído";
+                } else if (isDelayedForThisStage) {
+                    stageStatus = "atrasado";
+                } else if (percentage > 0 || hasInProgressSubTask) {
+                    stageStatus = "andamento";
+                } else {
+                    stageStatus = "pendente";
+                }
+            }
+            
+            percentuaisPorEtapa[etapa.id] = parseFloat(percentage.toFixed(2));
+            atrasosPorEtapa[etapa.id] = isDelayedForThisStage;
+            statusPorEtapa[etapa.id] = stageStatus;
+        }
+        
+        let sumOfStagePercentages = 0;
+        let totalStagesConsidered = 0;
+        for (const etapa of customEtapas) {
+            sumOfStagePercentages += (percentuaisPorEtapa[etapa.id] || 0);
+            totalStagesConsidered++;
+        }
+        let overallPercentConcluido = totalStagesConsidered > 0 ? sumOfStagePercentages / totalStagesConsidered : 0;
+        projeto.percentual_concluido = parseFloat(overallPercentConcluido.toFixed(2));
+        
+        let projetoStatus = "pendente";
+        const allStagesCompleted = customEtapas.length > 0 && Object.values(percentuaisPorEtapa).every(p => p === 100);
+        
+        if (allStagesCompleted) {
+            projetoStatus = "concluído";
+        } else {
+            const anyStageDelayed = Object.values(atrasosPorEtapa).some(d => d === true);
+            if (anyStageDelayed) {
+                projetoStatus = "atrasado";
+            } else {
+                const anyStageInProgress = Object.values(statusPorEtapa).some(s => s === 'andamento');
+                const isWithinProjectDates = projeto.data_inicio && projeto.data_fim && 
+                                              today >= new Date(projeto.data_inicio) && 
+                                              today <= new Date(projeto.data_fim);
+                
+                if (anyStageInProgress || overallPercentConcluido > 0 || isWithinProjectDates) {
+                    projetoStatus = "andamento";
+                }
+            }
+        }
+        projeto.status = projetoStatus;
+        
+        res.json({
+            ...projeto,
+            customEtapas, // Envia as etapas customizadas para o frontend
+            percentuaisPorEtapa,
+            atrasosPorEtapa,
+            statusPorEtapa
+        });
+        
+    } catch (err) {
+        console.error('Erro ao buscar projeto:', err);
+        res.status(500).json({ error: 'Erro ao buscar projeto no banco de dados.' });
+    }
 });
 
-// Endpoint: Obter sub-etapas de um projeto - Visualização para todos (aberto)
-app.get('/api/projetos/:id/sub-etapas', (req, res) => {
+// Endpoint: Obter uma etapa específica por ID (NOVO)
+app.get('/api/etapas/:id', async (req, res) => {
     const { id } = req.params;
-    const { etapa } = req.query;
+    try {
+        const [etapaResults] = await db.promise().query('SELECT * FROM projeto_etapas WHERE id = ?', [id]);
+        if (etapaResults.length === 0) {
+            return res.status(404).json({ error: 'Etapa não encontrada.' });
+        }
+        res.json(etapaResults[0]);
+    } catch (err) {
+        console.error('Erro ao buscar etapa:', err);
+        res.status(500).json({ error: 'Erro ao buscar etapa no banco de dados.' });
+    }
+});
 
-    let sql = 'SELECT * FROM sub_etapas WHERE projeto_id = ?';
-    const params = [id];
+// Endpoint: Adicionar uma etapa a um projeto (NOVO)
+app.post('/api/projetos/:id/etapas', authenticateToken, authorizeRole(['diretoria', 'coordenador']), async (req, res) => {
+    const { id: projeto_id } = req.params;
+    const { nome_etapa, ordem, data_inicio, data_fim, duracao_planejada_dias } = req.body;
 
-    if (etapa) {
-        sql += ' AND etapa_principal = ?';
-        params.push(etapa);
+    if (!nome_etapa || ordem === undefined || ordem < 1) {
+        return res.status(400).json({ error: 'Nome da etapa e ordem são obrigatórios.' });
     }
 
-    sql += ' ORDER BY etapa_principal, id';
+    try {
+        const [result] = await db.promise().query(
+            'INSERT INTO projeto_etapas (projeto_id, ordem, nome_etapa, data_inicio, data_fim, duracao_planejada_dias) VALUES (?, ?, ?, ?, ?, ?)',
+            [projeto_id, ordem, nome_etapa, data_inicio || null, data_fim || null, duracao_planejada_dias || null]
+        );
+        res.status(201).json({ message: 'Etapa adicionada com sucesso', id: result.insertId });
+    } catch (err) {
+        console.error('Erro ao adicionar etapa do projeto:', err);
+        res.status(500).json({ error: 'Erro ao adicionar etapa do projeto no banco de dados.' });
+    }
+});
+
+// Endpoint: Atualizar uma etapa específica (NOVO)
+app.put('/api/etapas/:id', authenticateToken, authorizeRole(['diretoria', 'coordenador']), async (req, res) => {
+    const { id } = req.params;
+    const { nome_etapa, data_inicio, data_fim, duracao_planejada_dias, ordem } = req.body;
+
+    const updateFields = [];
+    const updateValues = [];
+
+    if (nome_etapa !== undefined) {
+        updateFields.push('nome_etapa = ?');
+        updateValues.push(nome_etapa);
+    }
+    if (data_inicio !== undefined) {
+        updateFields.push('data_inicio = ?');
+        updateValues.push(data_inicio || null);
+    }
+    if (data_fim !== undefined) {
+        updateFields.push('data_fim = ?');
+        updateValues.push(data_fim || null);
+    }
+    if (duracao_planejada_dias !== undefined) {
+        updateFields.push('duracao_planejada_dias = ?');
+        updateValues.push(duracao_planejada_dias || null);
+    }
+    if (ordem !== undefined) {
+        updateFields.push('ordem = ?');
+        updateValues.push(ordem);
+    }
+
+    if (updateFields.length === 0) {
+        return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
+    }
+
+    try {
+        const [result] = await db.promise().query(
+            `UPDATE projeto_etapas SET ${updateFields.join(', ')} WHERE id = ?`,
+            [...updateValues, id]
+        );
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Etapa não encontrada.' });
+        }
+        res.json({ message: 'Etapa atualizada com sucesso' });
+    } catch (err) {
+        console.error('Erro ao atualizar etapa:', err);
+        res.status(500).json({ error: 'Erro ao atualizar etapa no banco de dados.' });
+    }
+});
+
+// Endpoint: Excluir uma etapa específica (NOVO)
+app.delete('/api/etapas/:id', authenticateToken, authorizeRole(['diretoria']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.promise().query('DELETE FROM projeto_etapas WHERE id = ?', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Etapa não encontrada.' });
+        }
+        res.json({ message: 'Etapa excluída com sucesso' });
+    } catch (err) {
+        console.error('Erro ao excluir etapa:', err);
+        res.status(500).json({ error: 'Erro ao excluir etapa no banco de dados.' });
+    }
+});
+
+// Endpoint: Obter sub-etapas de um projeto (atualizado para usar projeto_etapa_id)
+app.get('/api/projetos/:id/sub-etapas', (req, res) => {
+    const { id: projeto_id } = req.params;
+    const { etapa_id } = req.query; // Novo parâmetro: etapa_id (ID da etapa customizada)
+
+    let sql = 'SELECT * FROM sub_etapas WHERE projeto_id = ?';
+    const params = [projeto_id];
+
+    if (etapa_id) { // Agora filtra pelo ID da etapa da tabela projeto_etapas
+        sql += ' AND projeto_etapa_id = ?';
+        params.push(etapa_id);
+    }
+
+    sql += ' ORDER BY id'; // Ordem por id ou data_criacao
 
     db.query(sql, params, (err, results) => {
         if (err) {
@@ -473,17 +764,17 @@ app.get('/api/projetos/:id/sub-etapas', (req, res) => {
     });
 });
 
-// Endpoint: Adicionar sub-etapa a um projeto - Apenas para Diretoria, Coordenador e Líder
+// Endpoint: Adicionar sub-etapa a um projeto (atualizado para usar projeto_etapa_id)
 app.post('/api/projetos/:id/sub-etapas', authenticateToken, authorizeRole(['diretoria', 'coordenador', 'lider']), (req, res) => {
-    const { id } = req.params;
-    const { etapa_principal, descricao, data_prevista_conclusao } = req.body;
+    const { id: projeto_id } = req.params;
+    const { projeto_etapa_id, descricao, data_prevista_conclusao } = req.body;
 
-    if (!etapa_principal || !descricao) {
-        return res.status(400).json({ error: 'Etapa principal e descrição são obrigatórios.' });
+    if (!projeto_etapa_id || !descricao) { // <--- VALIDAÇÃO AQUI
+        return res.status(400).json({ error: 'ID da etapa e descrição são obrigatórios.' });
     }
 
-    const sql = 'INSERT INTO sub_etapas (projeto_id, etapa_principal, descricao, data_prevista_conclusao) VALUES (?, ?, ?, ?)';
-    db.query(sql, [id, etapa_principal, descricao, data_prevista_conclusao || null], (err, result) => {
+    const sql = 'INSERT INTO sub_etapas (projeto_id, projeto_etapa_id, descricao, data_prevista_conclusao) VALUES (?, ?, ?, ?)';
+    db.query(sql, [projeto_id, projeto_etapa_id, descricao, data_prevista_conclusao || null], (err, result) => {
         if (err) {
             console.error('Erro ao adicionar sub-etapa:', err);
             return res.status(500).json({ error: 'Erro ao adicionar sub-etapa no banco de dados.' });
@@ -548,24 +839,14 @@ app.delete('/api/sub-etapas/:id', authenticateToken, authorizeRole(['diretoria']
     });
 });
 
-// Endpoint: Cadastrar novo projeto - Apenas para Diretoria e Coordenador
-app.post('/api/projetos', authenticateToken, authorizeRole(['diretoria', 'coordenador']), (req, res) => {
+// Endpoint: Cadastrar novo projeto (atualizado para remover colunas de etapas fixas)
+app.post('/api/projetos', authenticateToken, authorizeRole(['diretoria', 'coordenador']), async (req, res) => {
     const {
         nome,
         lider,
         equipe,
-        etapa_atual = 1,
         data_inicio,
-        data_fim,
-        data_inicio_etapa1, data_fim_etapa1,
-        data_inicio_etapa2, data_fim_etapa2,
-        data_inicio_etapa3, data_fim_etapa3,
-        data_inicio_etapa4, data_fim_etapa4,
-        data_inicio_etapa5, data_fim_etapa5,
-        data_inicio_etapa6, data_fim_etapa6,
-        data_inicio_etapa7, data_fim_etapa7,
-        duracao_etapa1, duracao_etapa2, duracao_etapa3,
-        duracao_etapa4, duracao_etapa5, duracao_etapa6, duracao_etapa7
+        data_fim
     } = req.body;
 
     if (!nome || !lider) {
@@ -582,157 +863,112 @@ app.post('/api/projetos', authenticateToken, authorizeRole(['diretoria', 'coorde
         }
     }
 
-    const percentualConcluido = ((parseInt(etapa_atual) - 1) / 7) * 100;
-
     const sql = `
         INSERT INTO projetos (
-            nome, lider, equipe_json, etapa_atual, data_inicio, data_fim,
-            percentual_concluido,
-            data_inicio_etapa1, data_fim_etapa1,
-            data_inicio_etapa2, data_fim_etapa2,
-            data_inicio_etapa3, data_fim_etapa3,
-            data_inicio_etapa4, data_fim_etapa4,
-            data_inicio_etapa5, data_fim_etapa5,
-            data_inicio_etapa6, data_fim_etapa6,
-            data_inicio_etapa7, data_fim_etapa7,
-            duracao_etapa1, duracao_etapa2, duracao_etapa3,
-            duracao_etapa4, duracao_etapa5, duracao_etapa6, duracao_etapa7
-        ) VALUES (
-            ?, ?, ?, ?, ?, ?,
-            ?,
-            ?, ?,
-            ?, ?,
-            ?, ?,
-            ?, ?,
-            ?, ?,
-            ?, ?,
-            ?, ?,
-            ?, ?, ?,
-            ?, ?, ?, ?
-        )
+            nome, lider, equipe_json, data_inicio, data_fim
+        ) VALUES (?, ?, ?, ?, ?)
     `;
 
-    db.query(sql, [
-        nome, lider, equipeJsonString, parseInt(etapa_atual), data_inicio, data_fim,
-        percentualConcluido,
-        data_inicio_etapa1, data_fim_etapa1,
-        data_inicio_etapa2, data_fim_etapa2,
-        data_inicio_etapa3, data_fim_etapa3,
-        data_inicio_etapa4, data_fim_etapa4,
-        data_inicio_etapa5, data_fim_etapa5,
-        data_inicio_etapa6, data_fim_etapa6,
-        data_inicio_etapa7, data_fim_etapa7,
-        duracao_etapa1, duracao_etapa2, duracao_etapa3,
-        duracao_etapa4, duracao_etapa5, duracao_etapa6, duracao_etapa7
-    ], (err, result) => {
-        if (err) {
-            console.error('Erro ao cadastrar projeto:', err);
-            return res.status(500).json({ error: 'Erro ao cadastrar projeto no banco de dados.' });
-        }
+    try {
+        const [result] = await db.promise().query(sql, [
+            nome, lider, equipeJsonString, data_inicio, data_fim
+        ]);
         res.status(201).json({ message: 'Projeto cadastrado com sucesso', id: result.insertId });
-    });
+    } catch (err) {
+        console.error('Erro ao cadastrar projeto:', err);
+        return res.status(500).json({ error: 'Erro ao cadastrar projeto no banco de dados.' });
+    }
 });
 
-// Endpoint: Atualizar projeto existente - Apenas para Diretoria, Coordenador e Líder
-app.put('/api/projetos/:id', authenticateToken, authorizeRole(['diretoria', 'coordenador', 'lider']), (req, res) => {
+// Endpoint: Atualizar projeto (atualizado para remover colunas de etapas fixas)
+app.put('/api/projetos/:id', authenticateToken, authorizeRole(['diretoria', 'coordenador']), async (req, res) => {
     const { id } = req.params;
     const {
         nome,
         lider,
         equipe,
-        etapa_atual,
         data_inicio,
-        data_fim,
-        data_inicio_etapa1, data_fim_etapa1,
-        data_inicio_etapa2, data_fim_etapa2,
-        data_inicio_etapa3, data_fim_etapa3,
-        data_inicio_etapa4, data_fim_etapa4,
-        data_inicio_etapa5, data_fim_etapa5,
-        data_inicio_etapa6, data_fim_etapa6,
-        data_inicio_etapa7, data_fim_etapa7,
-        duracao_etapa1, duracao_etapa2, duracao_etapa3,
-        duracao_etapa4, duracao_etapa5, duracao_etapa6, duracao_etapa7
+        data_fim
     } = req.body;
 
-    if (!nome || !lider || !etapa_atual) {
-        return res.status(400).json({ error: 'Nome, líder e etapa atual são obrigatórios para atualização.' });
-    }
-
-    let equipeJsonString = null;
-    if (equipe) {
-        if (typeof equipe === 'string') {
-            const equipeArray = equipe.split(',').map(item => item.trim()).filter(item => item !== '');
-            equipeJsonString = JSON.stringify(equipeArray);
-        } else if (Array.isArray(equipe)) {
-            equipeJsonString = JSON.stringify(equipe);
-        } else {
-            return res.status(400).json({ error: 'Formato de equipe inválido. Deve ser uma string ou um array.' });
+    try {
+        const [results] = await db.promise().query('SELECT * FROM projetos WHERE id = ?', [id]);
+        
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Projeto não encontrado.' });
         }
-    }
 
-    const percentualConcluido = ((parseInt(etapa_atual) - 1) / 7) * 100;
+        const updateFields = [];
+        const updateValues = [];
 
-    const sql = `
-        UPDATE projetos
-        SET nome = ?,
-            lider = ?,
-            equipe_json = ?,
-            etapa_atual = ?,
-            data_inicio = ?,
-            data_fim = ?,
-            percentual_concluido = ?,
-            data_inicio_etapa1 = ?, data_fim_etapa1 = ?,
-            data_inicio_etapa2 = ?, data_fim_etapa2 = ?,
-            data_inicio_etapa3 = ?, data_fim_etapa3 = ?,
-            data_inicio_etapa4 = ?, data_fim_etapa4 = ?,
-            data_inicio_etapa5 = ?, data_fim_etapa5 = ?,
-            data_inicio_etapa6 = ?, data_fim_etapa6 = ?,
-            data_inicio_etapa7 = ?, data_fim_etapa7 = ?,
-            duracao_etapa1 = ?, duracao_etapa2 = ?, duracao_etapa3 = ?,
-            duracao_etapa4 = ?, duracao_etapa5 = ?, duracao_etapa6 = ?, duracao_etapa7 = ?
-        WHERE id = ?
-    `;
-
-    db.query(sql, [
-        nome,
-        lider,
-        equipeJsonString,
-        parseInt(etapa_atual),
-        data_inicio,
-        data_fim,
-        percentualConcluido,
-        data_inicio_etapa1, data_fim_etapa1,
-        data_inicio_etapa2, data_fim_etapa2,
-        data_inicio_etapa3, data_fim_etapa3,
-        data_inicio_etapa4, data_fim_etapa4,
-        data_inicio_etapa5, data_fim_etapa5,
-        data_inicio_etapa6, data_fim_etapa6,
-        data_inicio_etapa7, data_fim_etapa7,
-        duracao_etapa1, duracao_etapa2, duracao_etapa3,
-        duracao_etapa4, duracao_etapa5, duracao_etapa6, duracao_etapa7,
-        id
-    ], (err) => {
-        if (err) {
-            console.error('Erro ao atualizar projeto:', err);
-            return res.status(500).json({ error: 'Erro ao atualizar projeto no banco de dados.' });
+        if (nome !== undefined) {
+            updateFields.push('nome = ?');
+            updateValues.push(nome);
         }
+
+        if (lider !== undefined) {
+            updateFields.push('lider = ?');
+            updateValues.push(lider);
+        }
+
+        if (equipe !== undefined) {
+            let equipeJsonString = null;
+            if (typeof equipe === 'string') {
+                const equipeArray = equipe.split(',').map(item => item.trim()).filter(item => item !== '');
+                equipeJsonString = JSON.stringify(equipeArray);
+            } else if (Array.isArray(equipe)) {
+                equipeJsonString = JSON.stringify(equipe);
+            }
+            updateFields.push('equipe_json = ?');
+            updateValues.push(equipeJsonString);
+        }
+
+        if (data_inicio !== undefined) {
+            updateFields.push('data_inicio = ?');
+            updateValues.push(data_inicio);
+        }
+
+        if (data_fim !== undefined) {
+            updateFields.push('data_fim = ?');
+            updateValues.push(data_fim);
+        }
+        
+        if (updateFields.length === 0) {
+            return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
+        }
+
+        const sql = `UPDATE projetos SET ${updateFields.join(', ')} WHERE id = ?`;
+        await db.promise().query(sql, [...updateValues, id]);
+        
         res.json({ message: 'Projeto atualizado com sucesso' });
-    });
+
+    } catch (err) {
+        console.error('Erro ao atualizar projeto:', err);
+        res.status(500).json({ error: 'Erro ao atualizar projeto no banco de dados.' });
+    }
 });
 
-// Endpoint: Deletar projeto - Apenas para Diretoria
-app.delete('/api/projetos/:id', authenticateToken, authorizeRole(['diretoria']), (req, res) => {
+// Endpoint: Excluir projeto - Apenas para Diretoria
+app.delete('/api/projetos/:id', authenticateToken, authorizeRole(['diretoria']), async (req, res) => {
     const { id } = req.params;
 
-    db.query('DELETE FROM projetos WHERE id = ?', [id], (err) => {
-        if (err) {
-            console.error('Erro ao excluir projeto:', err);
-            return res.status(500).json({ error: 'Erro ao excluir projeto no banco de dados.' });
+    try {
+        const [results] = await db.promise().query('SELECT * FROM projetos WHERE id = ?', [id]);
+        
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Projeto não encontrado.' });
         }
+
+        await db.promise().query('DELETE FROM projetos WHERE id = ?', [id]);
+        
         res.json({ message: 'Projeto excluído com sucesso' });
-    });
+    } catch (err) {
+        console.error('Erro ao excluir projeto:', err);
+        res.status(500).json({ error: 'Erro ao excluir projeto no banco de dados.' });
+    }
 });
 
+// Iniciar o servidor
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
